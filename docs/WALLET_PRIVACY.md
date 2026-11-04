@@ -1,3 +1,7 @@
+> Current verification: native ZecPy is now installed; actual regtest policy and
+> separate FROST shielded receipts have been verified. See MVP.md for exact scope.
+> This does not establish public testnet execution, Tor routing or live Bitrefill settlement.
+
 # Protected ZecPy wallet milestone
 
 Pactora keeps ZecPy as its primary wallet adapter. Noir is not part of the default

@@ -6,6 +6,7 @@ This is not Bitrefill and its catalog cents are test accounting units, not an FX
 import asyncio
 import secrets
 import sqlite3
+import time
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header
@@ -72,14 +73,10 @@ class TestMerchant:
         ).fetchone()
         if row and tuple(row[:2]) != (request.product, request.package):
             raise Refused("invoice_reference_changed")
-        # Native invoice creation is independently idempotent by reference. A crash
-        # between native invoice creation and order insertion never derives a new invoice.
-        try:
-            invoice = self.wallet.invoices.by_reference(request.operation)
-        except KeyError:
-            invoice = self.wallet.invoices.create(self.amount, request.operation)
+        # Pin product identity before native invoice creation. A crash between the
+        # two databases cannot let the same operation change its product/package.
         if row is None:
-            expires = invoice.created_at + 900
+            expires = int(time.time()) + 900
             self.db.execute(
                 "INSERT INTO orders VALUES (?,?,?,?)",
                 (request.operation, request.product, request.package, expires),
@@ -87,6 +84,10 @@ class TestMerchant:
             self.db.commit()
         else:
             expires = row[2]
+        try:
+            invoice = self.wallet.invoices.by_reference(request.operation)
+        except KeyError:
+            invoice = self.wallet.invoices.create(self.amount, request.operation)
         return {
             "reference": request.operation,
             "product": item,

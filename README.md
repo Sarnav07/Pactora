@@ -1,11 +1,18 @@
 # Pactora
 
-A shopping MCP for Codex/Claude with **private final selection**, a mandatory
-spending boundary, and device-encrypted receipts. Chat selection is optional and
-must be enabled in the trusted private view.
+A shopping MCP for Codex/Claude with privately approved spending mandates,
+wallet-side policy checks and device-encrypted receipts. The hosted model sees
+shopping requests and proposed choices; invoice access and fulfillment stay private.
 
 For the consolidated scope, completed work, limitations and remaining roadmap,
 start with [implementation status](docs/STATUS.md).
+
+## Executed MVP proofs
+
+Actual shielded private-chain payments now pass both ordinary Pactora policy
+signing and a separate 2-of-2 FROST signing proof. These are regtest proofs, not
+public testnet/mainnet payments or real Bitrefill purchases. See the
+[MVP record and remaining gate](docs/MVP.md) and [proof harnesses](tools/proofs/README.md).
 
 ## What runs today
 
@@ -17,8 +24,9 @@ start with [implementation status](docs/STATUS.md).
 - RSA-OAEP/AES-GCM receipt envelopes decrypted with a non-exportable browser key.
 - An explicitly labeled simulator exercising the complete flow without money.
 - Protected Bitrefill REST catalog discovery and a read-only route-inventory probe.
-- A testnet-only ZecPy adapter that verifies the actual proposal fee and consumes a
-  durable approval before signing. This adapter is **not connected to live commerce**.
+- A testnet/regtest-only ZecPy service that independently checks mandates and actual
+  fees. A controlled test-merchant adapter connects it to invoice receipt detection;
+  real Bitrefill settlement remains disabled.
 
 **Live ZEC-to-Bitrefill purchases are disabled.** There is no verified conversion
 route, funded wallet, authenticated merchant session, or end-to-end settlement

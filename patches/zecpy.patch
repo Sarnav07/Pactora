@@ -159,7 +159,7 @@ index 0000000..9b099d0
 +        await audit.stop()
 diff --git a/tests/test_devnet_mandates.py b/tests/test_devnet_mandates.py
 new file mode 100644
-index 0000000..f747290
+index 0000000..fe8a662
 --- /dev/null
 +++ b/tests/test_devnet_mandates.py
 @@ -0,0 +1,52 @@
@@ -187,13 +187,13 @@ index 0000000..f747290
 +    receiver, _ = await Wallet.create(tmp_path / "receiver", network="regtest",
 +        server=devnet.server, regtest_heights=devnet.heights)
 +    devnet.pay(sender.address(), 2_000_000)
-+    devnet.mine(10)
++    devnet.mine(20)
 +    await sender.sync()
 +    key = Ed25519PrivateKey.generate()
 +    service = WalletService(sender, tmp_path / "service", b64(secrets.token_bytes(32)),
 +        b64(key.public_key().public_bytes_raw()), 1_000_000)
 +    ref = secrets.token_urlsafe(24)
-+    doc = {"domain": "pactora-mandate-v1", "reference": ref, "version": 1,
++    doc = {"domain": "veilcart-mandate-v1", "reference": ref, "version": 1,
 +        "wallet_id": "test-wallet", "network": "regtest", "merchant": "regtest-shop",
 +        "eligible": [product_key("test-product", "one")], "per_purchase_cents": 100,
 +        "total_cents": 200, "per_purchase_zat": 350000, "total_zat": 700000,
@@ -207,7 +207,7 @@ index 0000000..f747290
 +            result = await service.purchase_under_mandate(ref, str(index), bound, "one", 100,
 +                                                         bound.expires_at)
 +            assert result["state"] == "broadcast"
-+            devnet.mine(10)
++            devnet.mine(20)
 +            await receiver.sync()
 +            assert receiver.balance().total == 300000 * (index+1)
 +        with pytest.raises(Refused):

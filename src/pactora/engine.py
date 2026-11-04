@@ -3,6 +3,7 @@ import secrets
 import time
 
 from .crypto import digest, seal_to_device, validate_device_key
+from .fulfillment import assess_delivery, expected_delivery
 from .models import Product, Quote
 
 
@@ -165,6 +166,10 @@ class Engine:
                 "UPDATE jobs SET result=? WHERE id=?",
                 (self.store.cipher.encrypt(result, job + ":result"), job),
             )
+        quote = Quote.model_validate(self.store.cipher.decrypt(row["quote"], job + ":quote"))
+        state, _ = assess_delivery(expected_delivery(quote, job), result)
+        if state not in ("simulator_issued", "not_applicable"):
+            raise Refused("fulfillment_requires_private_attention")
         sealed = seal_to_device(result, row["device_key"])
         with self.store.transaction() as db:
             current = db.execute("SELECT * FROM jobs WHERE id=?", (job,)).fetchone()
@@ -206,7 +211,7 @@ class Engine:
                     except Exception:
                         pass  # Keep the reservation and encrypted recovery context.
                     continue
-                if row["state"] != "approved":
+                if row["state"] != "approved" or self.store.paused():
                     continue
                 job = row["id"]
                 with self.store.transaction() as db:

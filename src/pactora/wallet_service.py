@@ -73,6 +73,12 @@ class WalletService:
         self.db.execute(
             "CREATE TABLE IF NOT EXISTS operations (id TEXT PRIMARY KEY, state TEXT, payload TEXT)"
         )
+        self.db.execute("CREATE TABLE IF NOT EXISTS control (id INTEGER PRIMARY KEY, payload TEXT NOT NULL)")
+        if self.db.execute("SELECT id FROM control WHERE id=1").fetchone() is None:
+            self.db.execute(
+                "INSERT INTO control VALUES (1,?)",
+                (self.cipher.encrypt({"paused": False}, "wallet-control"),),
+            )
         # RAM proposals cannot be reconstructed safely; in-flight signing may have succeeded.
         self.db.execute("UPDATE operations SET state='quarantined' WHERE state IN ('prepared','signing')")
         self.db.commit()
@@ -80,6 +86,40 @@ class WalletService:
         self.mandates = MandateBook(directory / "mandates", self.cipher, approval_public_key)
         self.plans = {}
         self.lock = asyncio.Lock()
+        self.last_synced = None
+
+    def control(self):
+        row = self.db.execute("SELECT payload FROM control WHERE id=1").fetchone()
+        return self.cipher.decrypt(row[0], "wallet-control")
+
+    async def set_paused(self, paused):
+        async with self.lock:
+            self.db.execute(
+                "UPDATE control SET payload=? WHERE id=1",
+                (self.cipher.encrypt({"paused": paused}, "wallet-control"),),
+            )
+            self.db.commit()
+            return self.control()
+
+    def _require_running(self):
+        if self.control()["paused"]:
+            raise Refused("signing_paused")
+
+    async def overview(self):
+        """Private backend only. Never connected to MCP."""
+        async with self.lock:
+            await self.adapter.sync()
+            self.last_synced = int(time.time())
+            balance = self.adapter._wallet.balance()
+            return {
+                "connected": True,
+                "network": self.adapter._wallet.network,
+                "wallet_id": self.wallet_id,
+                "spendable_zat": balance.spendable,
+                "pending_zat": balance.pending,
+                "last_synced": self.last_synced,
+                "paused": self.control()["paused"],
+            }
 
     def close(self):
         self.mandates.close()
@@ -109,6 +149,7 @@ class WalletService:
 
     async def prepare(self, binding: PaymentBinding):
         async with self.lock:
+            self._require_running()
             if binding.network != self.adapter._wallet.network or binding.expires_at <= int(time.time()):
                 raise Refused("network_or_expiry_invalid")
             plan = self.adapter.prepare(binding.destination, binding.amount_zat, binding.max_debit_zat)
@@ -142,6 +183,7 @@ class WalletService:
 
     async def execute(self, reference, signature):
         async with self.lock:
+            self._require_running()
             state, data = self._load(reference)
             self._verify(data["approval"], signature)
             if state != "prepared":
@@ -165,6 +207,7 @@ class WalletService:
             return await self._sign_and_broadcast(reference, data, plan)
 
     async def _sign_and_broadcast(self, reference, data, plan):
+        self._require_running()
         try:
             txid = await self.adapter._wallet.sign_proposal(plan.proposal)
             data["txid"] = txid
@@ -191,32 +234,40 @@ class WalletService:
         async with self.lock:
             old = self.mandates.lookup(mandate_ref, purchase_ref, selection)
             if old:
+                if old["status"] == "refused":
+                    return {"reference": old["operation"], "state": "refused"}
                 try:
                     return self.status(old["operation"])
                 except Refused:
                     return {"reference": old["operation"], "state": "quarantined"}
-            if binding.network != self.adapter._wallet.network:
-                raise Refused("network_invalid")
-            self.mandates.check_candidate(
-                mandate_ref,
-                merchant=binding.merchant,
-                wallet_id=self.wallet_id,
-                network=binding.network,
-                product=binding.product,
-                package=package,
-                quote_expires=min(quote_expires, binding.expires_at),
-            )
+            self._require_running()
             try:
-                await self.adapter.sync()
-            except Exception:
-                raise Refused("protected_wallet_sync_unavailable") from None
-            if binding.expires_at <= int(time.time()):
-                raise Refused("approval_expired")
-            plan = self.adapter.prepare(binding.destination, binding.amount_zat, binding.max_debit_zat)
-            self.adapter._plans.pop(plan.reference)
-            total = plan.amount_zat + plan.fee_zat
-            if self._reserved() + total > self.cap:
-                raise Refused("aggregate_cap_exceeded")
+                if binding.network != self.adapter._wallet.network:
+                    raise Refused("network_invalid")
+                self.mandates.check_candidate(
+                    mandate_ref,
+                    merchant=binding.merchant,
+                    wallet_id=self.wallet_id,
+                    network=binding.network,
+                    product=binding.product,
+                    package=package,
+                    quote_expires=min(quote_expires, binding.expires_at),
+                )
+                try:
+                    await self.adapter.sync()
+                except Exception:
+                    raise Refused("protected_wallet_sync_unavailable") from None
+                if binding.expires_at <= int(time.time()):
+                    raise Refused("approval_expired")
+                plan = self.adapter.prepare(binding.destination, binding.amount_zat, binding.max_debit_zat)
+                self.adapter._plans.pop(plan.reference)
+                total = plan.amount_zat + plan.fee_zat
+                if self._reserved() + total > self.cap:
+                    raise Refused("aggregate_cap_exceeded")
+            except Refused as exc:
+                if str(exc) != "protected_wallet_sync_unavailable":
+                    self.mandates.refuse(mandate_ref, purchase_ref, selection)
+                raise
             record, fresh = self.mandates.reserve(
                 mandate_ref,
                 purchase_ref,

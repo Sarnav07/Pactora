@@ -2,37 +2,47 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Pactora · Private view</title>
+  <meta name="description" content="Bounded shopping authority for your AI agent. Private approvals and shielded Zcash test payments.">
+  <title>Pactora · Private agent commerce</title>
+  <link rel="icon" href="/static/mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/app.js" type="module"></script>
 </head>
 <body>
-  <header><a href="/" class="wordmark">pactora<span> / private view</span></a><span class="tag">USER ONLY</span></header>
-  <main>
-    <section class="intro"><p class="eyebrow">YOUR LIMITS. ENFORCED BEFORE SIGNING.</p>
-      <h1>Your agent.<br>Your spending rules.</h1>
-      <p class="lede">Compare in chat. Approve eligible products and limits here. The agent may know its proposed choice; payment details and receipts stay in your private view.</p>
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="topbar"><div class="topbar-inner">
+    <a href="/" class="wordmark" aria-label="Pactora home"><img src="/static/mark.svg" alt="" width="28" height="28">pactora</a>
+    <nav id="public-nav" aria-label="Website"><a href="/#how">How it works</a><a href="/#privacy">Privacy</a><a href="/setup">Developers</a></nav>
+    <nav id="app-nav" aria-label="Private dashboard" hidden><a href="/app" data-tab="intents">Intents</a><a href="/app/live" data-tab="live">Live <span class="dot"></span></a><a href="/app/wallet" data-tab="wallet">Wallet</a><a href="/app/settings" data-tab="settings">Settings</a></nav>
+    <div class="header-actions"><button id="pause" class="secondary compact" hidden>Ⅱ Pause all</button><a id="launch" class="button compact" href="/app">Launch app</a><button id="logout" class="secondary compact" hidden>Lock view</button></div>
+  </div></header>
+  <main id="content">
+    <section id="landing" class="landing" hidden>
+      <p class="eyebrow">PRIVATE AGENT COMMERCE</p>
+      <h1>Give your agent<br>a budget.<br><strong>Keep the authority.</strong></h1>
+      <p class="lede">Approve what it may buy, where, how much and until when. Your agent shops through restricted tools. Pactora checks the rules before ZecPy signs.</p>
+      <div class="actions"><a href="/setup" class="button">Set up your agent <span>↗</span></a><a href="/app" class="button secondary">Launch app</a></div>
+      <div class="hero-proof"><div class="proof-line"><span class="status refused">Refused</span><span>Unapproved product</span><span>Outside your intent</span></div><div class="proof-line"><span class="status confirmed">Confirmed</span><span>Shielded test payment</span><span>Receiver verified</span></div><p class="muted">Illustration of the workflow. Your actual decisions appear in the private dashboard.</p></div>
+      <section id="how" class="explain"><p class="eyebrow">HOW IT WORKS</p><h2>One approval. Clear boundaries.</h2><div class="columns"><p><strong>01 · Ask your agent</strong><br>Discover products through Pactora MCP in Claude Code or Codex.</p><p><strong>02 · Approve privately</strong><br>Review eligible products and spending limits in your browser.</p><p><strong>03 · Enforce before signing</strong><br>The firewall and protected wallet independently check the approved mandate.</p></div></section>
+      <section id="privacy" class="explain"><h2>Privacy with explicit limits.</h2><p class="lede">The model sees your request and its proposed choices. Wallet data, approval and receipt secrets stay outside its tools. Merchants still see their orders; network and account correlations can remain.</p><p class="notice">MVP: native Zcash regtest and a controlled test merchant. No redeemable goods. Live ZEC-funded Bitrefill settlement is disabled. FROST is a separate protocol proof.</p></section>
     </section>
-    <aside id="environment" class="notice">Loading protected service…</aside>
-    <form id="login" class="panel">
-      <h2>Unlock your private view</h2>
-      <label for="password">Private-view password</label>
-      <input id="password" type="password" autocomplete="current-password" required minlength="12">
-      <button type="submit">Unlock private view <span>↗</span></button>
-      <p class="muted">Use a browser profile and device the coding agent cannot inspect. Local demo mode alone does not provide that isolation.</p>
-    </form>
-    <section id="workspace" hidden>
-      <div class="toolbar"><h2>Private decisions</h2><div><button id="refresh" class="secondary">Refresh</button><button id="logout" class="secondary">Lock view</button></div></div>
-      <p class="muted">Start a search from Pactora MCP in Codex or Claude. Pending decisions appear here.</p>
-      <div id="jobs"></div>
+    <section id="setup" class="page" hidden>
+      <p class="eyebrow">DEVELOPERS / AGENT CONNECTION</p><h1>Connect your agent.</h1><p class="lede">The shopping skill teaches the workflow. The MCP server restricts the tools. The protected wallet keeps signing authority.</p>
+      <div class="setup-grid"><article class="panel"><span class="step">01</span><h2>Provision privately</h2><p>An operator starts the backend, merchant and protected wallet outside the shopping agent’s accessible files. For this MVP, use dedicated regtest funds.</p><p class="muted">Never paste a mnemonic, wallet configuration or backend token into chat.</p></article><article class="panel"><span class="step">02</span><h2>Install the skills</h2><p>Copy <code>skills/pactora-agent-setup</code> and <code>skills/pactora-shopping</code> into your client’s skill directory. Keep wallet setup operator-only.</p><p class="muted">The setup skill uses an owner-only gateway configuration. It never needs your wallet.</p></article><article class="panel"><span class="step">03</span><h2>Connect and verify</h2><p>Ask Claude: “Use pactora-agent-setup to connect my existing Pactora gateway.” The setup helper verifies the six restricted tools without printing credentials.</p><a href="/app" class="text-link">Open the private dashboard →</a></article></div>
+      <article class="panel prompt"><p class="eyebrow">NATIVE REGTEST REHEARSAL PROMPT</p><p>Use pactora-shopping. Find the controlled test voucher in IN. Request an intent for one purchase, valid for one hour, with a per-purchase and total limit of 100 test accounting cents and 200000 zatoshis including fees. Ask me to approve in the private view. After approval, purchase option 0 with purchase reference rehearsal-one. Report generic status; keep wallet and receipt details out of chat.</p><p class="muted">This is a test prompt, not a fiat-to-ZEC exchange quote. Open the private dashboard in an isolated browser the agent cannot inspect.</p></article>
     </section>
-    <p id="message" role="status" aria-live="polite"></p>
-    <section class="boundary"><h2>What stays private</h2><div class="columns">
-      <p><strong>From the model</strong><br>Invoice access, wallet data, payment destination and redemption secret. Chat requests and proposed choices are visible to the model.</p>
-      <p><strong>In your vault</strong><br>Receipts encrypted to this browser’s device key. Losing browser storage loses access; export encrypted receipts for safekeeping.</p>
-      <p><strong>Still visible to suppliers</strong><br>The product, invoice and settlement they process. Account and timing correlations can remain.</p>
-    </div></section>
+    <section id="private" class="page" hidden>
+      <aside id="environment" class="notice">Checking service…</aside>
+      <form id="login" class="login panel"><p class="eyebrow">YOUR PRIVATE VIEW</p><h1>Unlock Pactora.</h1><p>Approve your agent’s authority and view payment details privately.</p><label for="password">Private-view password</label><input id="password" type="password" autocomplete="current-password" required minlength="12"><button type="submit">Unlock private view →</button><p class="muted">Use a device and browser profile the agent cannot inspect. A local demo alone does not create that isolation.</p></form>
+      <section id="workspace" hidden>
+        <div id="intents-view" class="view" hidden><div class="page-title"><div><h1>Your <strong>intents</strong></h1><p>What your agent may buy, with how much, until when. Checked before signing.</p></div><a href="/setup" class="button">Connect your agent →</a></div><div id="mandates"></div><details id="legacy"><summary>Private selections and exact approvals</summary><div id="jobs"></div></details></div>
+        <div id="live-view" class="view" hidden><div class="page-title"><div><h1><strong>Live</strong> decisions</h1><p id="connection" role="status"><span class="dot"></span> Connecting…</p></div><button id="refresh" class="secondary compact">Refresh</button></div><p id="paused-banner" class="notice" hidden>Signing is paused. Existing signed transactions may still settle.</p><div class="feed"><div class="feed-head"><span>AGENT REQUESTED</span><span>PACTORA DECIDED</span></div><div id="decisions"></div></div><div id="private-receipts"></div></div>
+        <div id="wallet-view" class="view" hidden><div class="page-title"><div><h1>Your <strong>wallet</strong></h1><p>A dedicated ZecPy wallet. Signing authority stays outside the agent.</p></div><button id="wallet-refresh" class="secondary compact">Refresh balance</button></div><div id="wallet-status" class="panel"><p>Open this tab to check the protected wallet.</p></div><article class="panel"><h2>Funding and isolation</h2><p>This demo uses privately mined regtest ZEC. Funding is an operator action, outside the shopping conversation.</p><p class="muted">This MVP uses a full-key policy service. FROST is demonstrated separately; it is not the mandate signer. Local regtest traffic does not prove Tor routing or network anonymity.</p></article></div>
+        <div id="settings-view" class="view" hidden><div class="page-title"><div><h1>Your <strong>settings</strong></h1><p>Keep the agent connection separate from your private view.</p></div></div><article class="panel"><h2>Agent connection</h2><p>Shopping tools expose discovery, mandate requests and generic purchase status. They cannot approve, sign, read balances or reveal receipts.</p><a href="/setup" class="text-link">Connection instructions →</a></article><article class="panel"><h2>Private receipt vault</h2><p>Receipts are encrypted to this browser’s device key. Reveal and export them from Live. Losing browser storage loses access; exports contain encrypted receipts, not a backup of your device key.</p><p class="muted">Revealed content clears when you switch tabs or lock this view. Browser extensions, screenshots and an agent with browser access can still expose it.</p></article><article class="panel"><h2>What the model knows</h2><p>A hosted model receives your prompt, candidates and proposed choice. Skills cannot erase a transcript or prevent a client’s memory hooks from saving those messages. Private information must never enter the tools’ responses.</p></article></div>
+      </section>
+      <p id="message" role="status" aria-live="polite"></p>
+    </section>
   </main>
-  <footer>Minimal disclosure. Explicit authority. <span>Private selection ≠ guaranteed anonymity.</span></footer>
+  <footer><span>Pactora · Explicit authority. Minimal disclosure.</span><span>Test funds only · No anonymity guarantee</span></footer>
 </body>
 </html>

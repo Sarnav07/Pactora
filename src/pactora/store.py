@@ -33,7 +33,49 @@ class Store:
             );
             CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value INTEGER NOT NULL);
             INSERT OR IGNORE INTO meta VALUES ('spent_cents', 0);
+            INSERT OR IGNORE INTO meta VALUES ('paused', 0);
+            CREATE TABLE IF NOT EXISTS decisions (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         """)
+
+    def paused(self):
+        with self.lock:
+            return bool(self.db.execute("SELECT value FROM meta WHERE key='paused'").fetchone()[0])
+
+    def set_paused(self, paused):
+        with self.transaction() as db:
+            db.execute("UPDATE meta SET value=? WHERE key='paused'", (int(paused),))
+
+    def decision(self, reference, updates):
+        """One encrypted record per request binding, including identical retries."""
+        with self.transaction() as db:
+            row = db.execute("SELECT payload FROM decisions WHERE id=?", (reference,)).fetchone()
+            value = (
+                self.cipher.decrypt(row[0], "decision:" + reference)
+                if row
+                else {
+                    "id": reference,
+                    "created_at": int(time.time()),
+                }
+            )
+            # An identical retry must not replace a finished decision with 'pending'.
+            if row and updates.get("state") == "pending":
+                return
+            value.update(updates)
+            db.execute(
+                "INSERT OR REPLACE INTO decisions VALUES (?,?)",
+                (
+                    reference,
+                    self.cipher.encrypt(value, "decision:" + reference),
+                ),
+            )
+
+    def decisions(self):
+        with self.lock:
+            values = [
+                self.cipher.decrypt(r[1], "decision:" + r[0])
+                for r in self.db.execute("SELECT id,payload FROM decisions")
+            ]
+        return sorted(values, key=lambda v: (v["created_at"], v["id"]), reverse=True)
 
     @contextmanager
     def transaction(self):

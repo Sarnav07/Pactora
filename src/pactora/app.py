@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import Field
 
@@ -32,6 +33,14 @@ class ChatMode(StrictModel):
     enabled: bool
 
 
+class Control(StrictModel):
+    paused: bool
+
+
+class DeliveryAction(StrictModel):
+    action: str = Field(pattern="^(accessible|acknowledged|missing|invalid|partial|device_access)$")
+
+
 def create_app(settings: Settings, provider=None, *, run_worker=True):
     store = Store(settings.data_dir, PrivateStoreCipher(settings.master_key))
     engine = Engine(
@@ -47,14 +56,24 @@ def create_app(settings: Settings, provider=None, *, run_worker=True):
 
     mandates = MandateCommerce(engine)
 
+    async def dashboard_worker():
+        while True:
+            try:
+                await mandates.poll_confirmations()
+            except Exception:
+                pass  # Observation failure never releases a reservation or repeats a payment.
+            await asyncio.sleep(2)
+
     @asynccontextmanager
     async def lifespan(app):
         task = asyncio.create_task(engine.loop()) if run_worker else None
+        mandate_task = asyncio.create_task(mandates.loop()) if run_worker else None
         yield
-        if task:
-            task.cancel()
-            with suppress(asyncio.CancelledError):
-                await task
+        for worker in (task, mandate_task):
+            if worker:
+                worker.cancel()
+                with suppress(asyncio.CancelledError):
+                    await worker
         if mandates.book:
             mandates.book.close()
         store.db.close()
@@ -88,7 +107,7 @@ def create_app(settings: Settings, provider=None, *, run_worker=True):
                 "X-Frame-Options": "DENY",
                 "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
                 "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; "
-                "connect-src 'self'; img-src 'self'; frame-ancestors 'none'; "
+                "connect-src 'self'; img-src 'self'; font-src 'self'; frame-ancestors 'none'; "
                 "base-uri 'none'; form-action 'self'",
             }
         )
@@ -105,6 +124,10 @@ def create_app(settings: Settings, provider=None, *, run_worker=True):
     @app.exception_handler(ProviderError)
     async def provider_error(request, exc):
         return JSONResponse({"error": "provider_unavailable_or_live_gate_closed"}, 503)
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(request, exc):
+        return JSONResponse({"error": "invalid_request"}, 422)
 
     @app.exception_handler(Exception)
     async def unexpected(request, exc):
@@ -130,12 +153,17 @@ def create_app(settings: Settings, provider=None, *, run_worker=True):
         return row
 
     @app.get("/")
+    @app.get("/setup")
+    @app.get("/app")
+    @app.get("/app/live")
+    @app.get("/app/wallet")
+    @app.get("/app/settings")
     async def index():
         return FileResponse(STATIC / "index.html")
 
     @app.get("/static/{name}")
     async def asset(name: str):
-        if name not in ("app.js", "app.css"):
+        if name not in ("app.js", "app.css", "mark.svg"):
             raise HTTPException(404)
         return FileResponse(STATIC / name)
 
@@ -187,6 +215,40 @@ def create_app(settings: Settings, provider=None, *, run_worker=True):
         store.cleanup()
         return [engine.private_job(r["id"]) for r in store.jobs()]
 
+    @app.get("/api/dashboard", dependencies=[Depends(session)])
+    async def dashboard():
+        store.cleanup()
+        return {
+            "environment": settings.provider,
+            "network": settings.wallet_network,
+            "paused": store.paused(),
+            "intents": mandates.views(),
+            "decisions": store.decisions(),
+            "jobs": [engine.private_job(r["id"]) for r in store.jobs()],
+        }
+
+    @app.get("/api/wallet", dependencies=[Depends(session)])
+    async def wallet_overview():
+        if not mandates.wallet:
+            return {
+                "connected": False,
+                "environment": settings.provider,
+                "network": settings.wallet_network,
+                "wallet_id": settings.wallet_id,
+            }
+        return await mandates.wallet.call("/overview", method="GET")
+
+    @app.post("/api/control", dependencies=[Depends(session)])
+    async def control(body: Control):
+        # Serialize with both commerce paths. Stop new requests locally first;
+        # report success only after the signing boundary has acknowledged.
+        async with engine.worker_lock, mandates.lock:
+            store.set_paused(True)
+            if mandates.wallet:
+                await mandates.wallet.call("/control", {"paused": body.paused})
+            store.set_paused(body.paused)
+            return {"paused": store.paused()}
+
     @app.post("/api/jobs/{job}/select", dependencies=[Depends(session)])
     async def select(job: str, body: PrivateSelection):
         return await engine.select(job, body.option)
@@ -213,7 +275,12 @@ def create_app(settings: Settings, provider=None, *, run_worker=True):
     async def recover_mandate(reference: str):
         async with mandates.lock:
             await mandates.recover_test_payments(reference)
-            return mandates.recover_receipts(reference)
+            return await mandates.reconcile_deliveries(reference)
+
+    @app.post("/api/mandates/{reference}/deliveries/{purchase}/action", dependencies=[Depends(session)])
+    async def delivery_action(reference: str, purchase: str, body: DeliveryAction):
+        async with mandates.lock:
+            return mandates.delivery_action(reference, purchase, body.action)
 
     @app.post("/api/mandates/{reference}/revoke", dependencies=[Depends(session)])
     async def revoke_mandate(reference: str):

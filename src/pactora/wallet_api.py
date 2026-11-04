@@ -21,6 +21,11 @@ class SignedMandate(Authorization):
     document: Mandate
 
 
+class SigningControl(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    paused: bool
+
+
 class MandatedPurchase(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
     purchase_ref: str = Field(min_length=1, max_length=128)
@@ -85,6 +90,17 @@ def create_wallet_app(service, token):
     @app.post("/sync", dependencies=[Depends(authenticated)])
     async def sync():
         return await service.sync()
+
+    @app.get("/overview", dependencies=[Depends(authenticated)])
+    async def overview():
+        try:
+            return await service.overview()
+        except Exception:
+            return JSONResponse({"error": "wallet_status_unavailable"}, status_code=503)
+
+    @app.post("/control", dependencies=[Depends(authenticated)])
+    async def control(body: SigningControl):
+        return await service.set_paused(body.paused)
 
     @app.post("/prepare", dependencies=[Depends(authenticated)])
     async def prepare(binding: PaymentBinding):

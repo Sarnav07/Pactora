@@ -2,9 +2,25 @@
 
 Snapshot: 4 November 2026. Prepared from the current application source, parent-thread verification outputs and the completed local proof reports. This is a planning/status document, not a claim that every checklist item is implemented.
 
-**Read this first:** Pactora has a working simulator, software-enforced spending mandates and a confirmed native shielded **regtest** payment. FROST **key generation** has passed. A FROST-signed payment, real Bitrefill fulfillment, public-testnet payment and observed Tor routing are not established by the inspected evidence.
+**Read this first:** Two of the three MVP proofs are verified: an actual shielded **regtest** payment under Pactora software policy, and a separate **2-of-2 FROST-signed shielded regtest payment**, each with a confirmed receiver receipt of 100,000 test zatoshis. Real Bitrefill fulfillment, public-testnet payment, observed Tor routing and deployed signer isolation remain unverified. The application suite passes **115 tests**, with **37 native unit tests** and **6 targeted native integration tests** also passing.
 
-The project branding and Python package are **Pactora / `pactora`**. The current checkout directory is named `Factora/`; this directory name does not rename the product. Some historical documents and compatibility identifiers still use VeilCart. Existing `docs/STATUS.md` contains older milestone snapshots that predate the latest native proof.
+The project branding and Python package are **Pactora / `pactora`**. The current checkout directory is `Pactora/`. Some historical documents and compatibility identifiers still use VeilCart. Read the latest section of `docs/STATUS.md`, [MVP results](MVP.md) and [sanitized execution evidence](evidence/mvp-proofs.json) before older milestone snapshots. The test validator and browser-QA simulator were stopped after verification; private state is preserved.
+
+## Current integration and final demo checklist (4 November 2026)
+
+The work from `feat/mvp-demo-fulfillment-recovery` has been integrated into the local working tree alongside the existing dashboard and proof work. It adds **demo-only** expected-result validation, separate payment/fulfillment/private-delivery states, encrypted receipt acknowledgement and private issue reporting, bounded reconciliation, revocation recovery and refusal binding. The dashboard shows delivery details under Live. Background confirmation polling observes already-broadcast transactions; it does not initiate wallet purchases. This is not a live Bitrefill adapter or proof of redeemable goods. The remote branch is not safe to delete until the integrated changes have been committed and pushed to `main`.
+
+Priority for the final demonstration:
+
+- [ ] Publish the reviewed integration to `main`; verify the remote commit includes the changes before deleting the source branch. GitHub authentication is required.
+- [x] Run the application suite on the integrated working tree: 115 tests passed. Ruff, JavaScript syntax and Git diff checks passed.
+- [ ] Run browser/MCP simulator verification on the integrated code; confirm approval, allowed purchase, refusal, receipt reveal, reload, issue reporting, revocation, mobile layout and no browser errors. Browser automation needs Playwright and an installed Chromium browser.
+- [ ] Rehearse the actual Claude Code and Codex skill flows, each with a private browser inaccessible to the shopping agent. Record generic model-visible responses only.
+- [ ] Reproduce the controlled native-wallet browser/MCP flow using dedicated regtest state. Treat it separately from the previously verified direct policy payment and FROST payment proofs.
+- [ ] Prepare a concise demo sequence: introduce the mandate and its scope, show private approval, permitted test purchase, a refused request, and the receipt with honest payment-versus-fulfillment labels. Have the sanitized proof summaries ready as fallback.
+- [ ] Complete live provider prerequisites and fulfillment verification before any real purchase; real Bitrefill goods, public-testnet behavior and Tor routing remain unverified. Obtain explicit approval before real spend.
+
+The FROST payment was already verified separately; the older branch progress note saying it remains outstanding has been superseded by `docs/MVP.md` and `docs/evidence/mvp-proofs.json`. The previous frontend prompt is not included in this handoff; confirm any additional requested visual direction before treating frontend work as final.
 
 ## 1. What we are building and why
 
@@ -37,7 +53,7 @@ The agreed basic MVP has **three separately labeled proofs**:
 | Proof | Success criterion | Current evidence |
 | --- | --- | --- |
 | Zcash policy payment | Actual shielded test-network payment, receiver confirmation, unauthorized purchase refusal and safe retry | Confirmed on private regtest |
-| FROST signing | A real shielded transaction completed by two signing participants; one alone cannot complete the session | DKG passed; payment/signature proof still unverified |
+| FROST signing | A real shielded transaction completed by two signing participants; one alone cannot complete the session | Verified 2-of-2 RedPallas DKG, threshold signature application and confirmed regtest receipt; single-host protocol proof |
 | Bitrefill purchase | Agent discovers a product, purchases through an accepted supported payment path and privately delivers the actual product | No completed live purchase |
 
 These may use different payment paths. A Bitrefill purchase paid from a separate account/balance does not prove that ZEC funded it. Native regtest tokens cannot buy real goods. ZEC-to-Bitrefill conversion is a separate unresolved integration.
@@ -96,15 +112,20 @@ Checked boxes below mean the stated item is done at the explicitly stated level.
 
 | Record | What it establishes | What it does not establish |
 | --- | --- | --- |
-| Historical full application suite: 82 passing tests | Earlier committed application baseline and rename compatibility | Coverage of all subsequently added code |
-| Later full application run: 91 passing tests | Application state at that point in the parent thread | A fresh full run after the final eligibility regression and proof-script edits |
-| Controlled merchant/probe targeted run: 10 passing tests | Mocked merchant/policy/confirmation behavior in that targeted run | Actual on-chain transfer in those mocked tests |
-| ZecPy native unit run: 37 passing tests | Executed native wallet/invoice/audit unit checks | Public-testnet transfers or network anonymity |
-| Earlier real MCP stdio + HTTP simulator smoke | One private approval, two simulated purchases, retry and cap refusal | Hosted Claude/Codex behavior or real merchant fulfillment |
+| Current full application suite: **115 passing tests** | Current Pactora logic, mocked HTTP integration, eligibility-before-proposal regression and invoice crash binding | Complete native/live behavior or deployed isolation |
+| ZecPy native unit run: **37 passing tests** | Executed native wallet/invoice/audit unit checks | Public-testnet transfers or network anonymity |
+| Native integration targets: **6 passing tests** | Recovery, proposals and native two-purchase mandate behavior against the private chain | Bitrefill fulfillment or Tor routing |
+| Real MCP stdio + HTTP simulator smoke | One private approval, two simulated purchases, retry and cap refusal | Actual hosted Claude/Codex behavior or real merchant fulfillment |
+| Ruff lint/format, JavaScript syntax, Rust helper formatting and bundled skill validators | Current source/skill checks passed; the helper compiled and participated in the FROST proof | Security audit or model-behavior evaluation |
+| Native Chrome inspection | Updated disclosure copy, simulator login and mandate details were inspected; screenshot obtained | Approval/revocation/device decryption: interaction hit framing/window errors |
 | `proof-state/native-payment-3/report.json` | Actual 100,000-zatoshi shielded regtest receipt, no additional transaction for identical retry, unauthorized product blocked | FROST, Bitrefill, public testnet or Tor verification |
-| `proof-state/frost-dkg-3/report.json` | Two-participant, threshold-two RedPallas DKG with matching group | A threshold signature or payment; its report explicitly marks those false |
+| `proof-state/frost-dkg-3/report.json` | Two-participant, threshold-two RedPallas DKG with matching group | This earlier DKG-only report intentionally leaves signature/payment false |
+| `proof-state/frost-payment-2/report.json` | Separate actual FROST signatures applied/verified, incomplete session with one participant, completed signing with both, confirmed shielded regtest receipt | Independent signer-host security, Pactora mandate enforcement by FROST, public testnet or Bitrefill |
+| `docs/evidence/mvp-proofs.json` | Sanitized summaries and pinned dependency/tool revisions for both successful payment proofs | Public-chain evidence or a third-party attestation |
 
-`proof-state/` is ignored private runtime state. Do not commit it, inspect/share wallet secrets from it, or publish raw logs containing shares/viewing material. Its reports can be reviewed locally and sanitized evidence copied deliberately. Presence of `tools/proofs/frost_payment.py` is not evidence it completed successfully.
+`proof-state/` and `.tools/` are ignored private runtime/tooling directories. Never commit shares, mnemonics, viewing keys, raw transaction plans or private logs. Review only deliberately sanitized reports for sharing. Successful journal/authority keys are retained in owner-only test state. Earlier failed attempts are preserved for inspection and must not be blindly resumed.
+
+Reproduction instructions are in [tools/proofs/README.md](../tools/proofs/README.md). The official Zebra image download failed; a checksum-verified official Zebra 7.0.0 Linux binary ran in an existing Linux/glibc container with its normal entrypoint replaced and both RPC ports published only on host loopback. No existing database volume/account was used.
 
 ## 5. Workstream A — agent, skills and private interface
 
@@ -115,16 +136,19 @@ Checked boxes below mean the stated item is done at the explicitly stated level.
 - [x] Private authentication, approval/revocation routes and receipt interface are implemented.
 - [x] Simulator MCP stdio workflow has been exercised with a real MCP client.
 - [x] Pactora package/commands are implemented with legacy command/environment compatibility.
+- [x] Native Chrome login, updated privacy disclosure and bounded-mandate display inspected in simulator mode.
+- [x] Bundled validators pass for both skills; PyYAML is now installed in the local tool environment.
+- [x] UI copy acknowledges that the model knows proposed choices; simulator/controlled-merchant labels are implemented.
 
 ### To do
 
 - [ ] Install and exercise the shopping skill in an actual Claude Code session.
 - [ ] Repeat in Codex; do not infer cross-client behavior from a stdio smoke alone.
-- [ ] Check browser login, approval, revocation, IndexedDB/device keys, receipt reveal and recovery.
+- [ ] Complete browser approval, revocation, IndexedDB/device-key, receipt-reveal and recovery checks. Login/display inspection is done; full interaction was interrupted by computer-use framing/window errors.
 - [ ] Complete visual QA and accessibility/error-state checks.
 - [ ] Show active/expired/revoked mandate status accurately in the private view.
-- [ ] Clearly label simulator, controlled regtest merchant and real Bitrefill modes.
-- [ ] Ensure agent-visible instructions never imply that selecting in chat can be forgotten.
+- [ ] Inspect each mode label in an actual browser; simulator labeling is visually checked, while controlled/live states still need browser verification.
+- [ ] Exercise actual agent behavior to confirm it communicates disclosure limits; skill/UI text already states that proposed choices are known to the model.
 
 Acceptance: a user can approve one bounded mandate privately, the agent can request permitted purchases without another approval, and sensitive execution/fulfillment details do not appear in model responses.
 
@@ -139,14 +163,15 @@ Acceptance: a user can approve one bounded mandate privately, the agent can requ
 - [x] Stored receipt delivery can recover without calling the merchant again.
 - [x] A real native run exposed proposal construction occurring before product eligibility; a preflight eligibility check and regression test were added.
 - [x] A subsequent native proof confirmed receipt, safe retry and unauthorized-product refusal.
+- [x] Full current application suite passed: 115 tests.
+- [x] Final Ruff checks include proof scripts; JavaScript syntax, Rust helper formatting/build, patch applicability and skill validators passed.
+- [x] Controlled merchant order identity is persisted before native invoice creation; crash/rebinding regression test passes.
+- [x] Trusted adapter assumptions are documented: the wallet does not independently fetch/verify merchant invoice authenticity.
 
 ### To do
 
-- [ ] Run the complete current application suite after all latest changes and record its exact count.
-- [ ] Run final Ruff checks including `tools/proofs/`, JavaScript syntax and proof-helper build checks.
 - [ ] Test crash/restart at registration, reservation, signing, broadcast, fulfillment persistence and receipt encryption boundaries.
 - [ ] Review whether every refusal/timeout path consistently binds its purchase reference and preserves conservative allowance.
-- [ ] Document the trusted adapter's role in invoice/destination mapping precisely.
 - [ ] Verify revocation propagation when the wallet bridge is unavailable or only one side persisted the update.
 - [ ] Keep existing encryption/signed-record identifiers compatible; renaming is not a migration strategy.
 
@@ -167,9 +192,9 @@ Acceptance: altered product/recipient bindings, stale quotes, expired/revoked ma
 
 ### To do
 
-- [ ] Make the local-chain bootstrap fully reproducible from a documented clean environment.
-- [ ] Persist all test journal/authority configuration needed for safe proof recovery; do not rerun a half-finished payment blindly.
-- [ ] Run the existing chain-dependent mandate and recovery tests against the running native chain.
+- [ ] Repeat clean-environment bootstrap. A pinned startup helper and reproduction instructions now exist; the successful local setup used the equivalent verified binary/container path, not a clean-host replay of the helper.
+- [x] Successful native proof runner persists journal and authority keys in owner-only test state. Earlier failed-run state is preserved separately; inspect it rather than automatically rerunning a payment.
+- [x] Six targeted chain-dependent recovery/proposal/mandate tests passed against the private chain. The stale mandate-test signing domain was corrected and confirmation waits hardened.
 - [ ] Repeat the complete MCP/private-UI controlled-merchant flow using actual native wallets, not only direct wallet-service calls and mocked HTTP tests.
 - [ ] Demonstrate public-testnet receipt if feasible, with dedicated test wallets; label it separately from regtest.
 - [ ] Verify Tor before making network-privacy claims. Direct loopback regtest intentionally does not test Tor.
@@ -184,19 +209,22 @@ Acceptance: reproducible payment and confirmed receiver evidence, with rejected 
 - [x] Official `frost-client`, `frostd`, `zcash-sign` and development wallet tools built locally.
 - [x] Local TLS setup corrected without modifying system trust.
 - [x] Actual 2-of-2 RedPallas distributed key generation succeeded.
-- [x] Separate FROST payment proof script and official-encoder network conversion helper are present.
+- [x] Separate FROST payment proof script and official-encoder network conversion helper compiled/executed.
+- [x] PCZT/pool/tool compatibility verified for the pinned private-chain proof.
+- [x] A new dedicated threshold watch-only wallet was funded only with mined regtest funds.
+- [x] Test participants approved only the exact digest extracted from the locally constructed PCZT.
+- [x] Withholding participant two did not complete the session; both participants then completed signing.
+- [x] Threshold signatures were applied/verified, broadcast and confirmed by the actual receiver: 100,000 test zatoshis.
+- [x] Each signing attempt used fresh session/process state; cancelled sessions were not resumed with reused nonces.
+- [x] Shares/config/logs remain owner-only and ignored; source-control exclusion checked.
+- [x] Same-host limitation recorded: this is a protocol demonstration, not independent host-compromise protection.
 
 ### To do
 
-- [ ] Inspect/review the payment proof script before running it; it was not verified complete at this snapshot.
-- [ ] Confirm PCZT, pool and dependency compatibility across the pinned native/tool versions.
-- [ ] Use an unfunded/new dedicated threshold watch wallet and private regtest funds only.
-- [ ] Verify the signer/coordinator are authorizing the expected transaction data.
-- [ ] Withhold participant two and establish that the session cannot complete; then complete with both participants.
-- [ ] Apply and verify the threshold signature, broadcast the transaction and confirm actual receiver receipt.
-- [ ] Preserve nonce/session safety on failures; no casual retries with reused signing material.
-- [ ] Keep share/config/log files owner-only and outside source control/model context.
-- [ ] Record that same-host participants do not provide independent host-compromise protection.
+- [ ] Reproduce the successful proof in a clean environment from pinned source/tool revisions.
+- [ ] Audit nonce/session lifecycle and state rollback/recovery beyond the exercised successful/cancelled sessions.
+- [ ] Demonstrate public-testnet threshold payment separately if feasible; do not relabel regtest.
+- [ ] Design and verify signer-side transaction inspection, policy enforcement, backup and independent deployment before claiming threshold custody for Pactora.
 
 Deferred: replacing the default Pactora full-key service with independently deployed policy-enforcing threshold signers. A successful separate FROST transaction is not that integration.
 
@@ -332,14 +360,14 @@ No “nobody can link any activity” claim is supported. Hosted Claude/Codex kn
 
 This section is a handoff, not an instruction to a side-conversation assistant to resume parent-thread tools.
 
-1. **Reinspect active state.** Confirm current checkout path, Git diff and completed proof reports. Do not assume an inherited process is still running or that a script exists unchanged. Do not overwrite concurrent work.
-2. **Finish the FROST proof.** Review the existing runner/helper; use the successful DKG state and dedicated private-chain funds, apply the threshold signature and confirm actual receiver receipt. If compatibility fails, document the exact blocker.
-3. **Run final current checks.** Complete the full application suite, native chain-dependent checks, Ruff including proof scripts, JS syntax and skill validators. Record precise evidence rather than replacing old test counts speculatively.
-4. **Finish fulfillment design/tests before live checkout.** Implement separate fulfillment state and the F1–F12 checks for one narrow product/provider. This is the main missing business-completion safeguard.
-5. **Obtain Bitrefill prerequisites.** Credentials, funding, supported product, enforced debit ceiling and reconciliation contract. Keep secrets outside chat. Keep the live gate closed if any prerequisite is missing.
-6. **Exercise an actual agent and private browser.** Demonstrate a mandate purchase and rejected attack in Claude Code, then Codex; complete browser QA.
-7. **Run one explicitly approved small real purchase.** Only after the prior gates pass; demonstrate actual private delivery or an honest unresolved state.
-8. **Package the three proofs honestly.** Clearly distinguish regtest/public testnet, DKG/threshold payment, simulator/real Bitrefill, payment/fulfillment and application/OS privacy guarantees.
+1. **Reinspect active state.** Confirm the `Pactora/` checkout, current Git diff and sanitized proof summary. Both payment proofs passed; do not rerun them merely because historical snapshots say unfinished. The validator/simulator were stopped and private test state is retained.
+2. **Finish fulfillment design/tests before live checkout.** Implement separate payment, fulfillment and private-delivery state plus F1–F12 for one narrow product/provider. A paid invoice is not proof of usable service.
+3. **Resolve Bitrefill prerequisites in parallel.** Obtain dedicated access/funding, verified product schemas, an enforceable pre-debit ceiling or reserved quote, and lost-response reconciliation. Keep secrets outside chat and live execution closed while any gate is missing.
+4. **Complete actual client/browser validation.** Exercise the skill in Claude Code and Codex; finish browser mandate approval/revocation and receipt decryption/recovery. Simulator login and mandate-display inspection are already recorded, but not the full flow.
+5. **Verify privacy/deployment claims.** Observe Tor routing/failure/egress behavior and review protected host identities, viewing-key/share handling and backups. Loopback proofs do not cover this.
+6. **Run one explicitly approved small real Bitrefill purchase.** Only after authorization, price, reconciliation and fulfillment gates pass. Show actual private delivery or an honest unresolved state; the $5 ceiling is not blanket spending approval.
+7. **Package the three proofs honestly.** Ordinary Zcash and FROST regtest receipts are verified. Bitrefill is still blocked. Keep regtest/public testnet, simulator/real goods, payment/fulfillment and application/OS privacy claims distinct.
+8. **Preserve reviewable changes.** The latest documentation, evidence summary and some follow-up hardening remain local changes; inspect the current diff before committing. Do not overwrite concurrent work or stage ignored runtime state.
 
 Do not expand into conversion, production custody or a custom CLI before these gates are closed.
 
@@ -353,7 +381,8 @@ Do not expand into conversion, production custody or a custom CLI before these g
 | Wallet boundary | `src/pactora/wallet_service.py`, `wallet_api.py`, `wallet_bridge.py`, `wallet.py` |
 | Controlled native merchant | `src/pactora/test_merchant.py`, `controlled_provider.py`, `merchant_cli.py` |
 | Bitrefill status/probe | `src/pactora/providers.py`, `bitrefill_probe.py`, `docs/LIVE_GATES.md` |
-| Local proofs | `tools/proofs/native_payment.py`, `frost_dkg.py`, `frost_payment.py`, `view-network/` |
+| Local proofs | `tools/proofs/README.md`, `start_regtest.py`, `native_payment.py`, `frost_dkg.py`, `frost_payment.py`, `view-network/` |
+| Current MVP evidence | `docs/MVP.md`, `docs/evidence/mvp-proofs.json` |
 | Tests | `tests/`, plus native tests in sibling `zecpy/tests/` |
 | Privacy and wallet documentation | `docs/PRIVACY.md`, `docs/WALLET_PRIVACY.md`, `docs/ZECPY.md` |
 | Historical status | `docs/STATUS.md`; older claims may be superseded by current evidence |
@@ -362,4 +391,4 @@ The sibling `zecpy/` and `frost/` directories are reference/dependency repositor
 
 ## 14. Short context block to give another agent
 
-> We are building Pactora: Claude Code/Codex shopping through restricted MCP with privately approved deterministic spending mandates, protected ZecPy signing and private fulfillment. No custom conversational CLI. Constraints currently run in software, not a Zcash smart contract. FROST provides threshold signing, not automatic product/budget enforcement. Simulator flow works; an actual shielded regtest policy payment of 100,000 zatoshis confirmed with safe retry and unauthorized-item refusal. Two-party RedPallas DKG passed; a FROST-signed payment is not yet established. Real Bitrefill checkout/fulfillment and observed Tor routing remain unverified. The checkout is currently named Factora but package/branding is Pactora. Reinspect current diffs and proof reports before continuing. Finish FROST and final verification; add separate payment/fulfillment/private-delivery states and product-specific checks. A merchant receiving payment is not proof the user received a usable service. Keep live gates closed until credentials, funding, safe debit limits, reconciliation and fulfillment prerequisites pass. Never read secrets into model context, reset uncertainty reservations, retry an ambiguous debit or claim complete anonymity/refund guarantees.
+> We are building Pactora: Claude Code/Codex shopping through restricted MCP with privately approved deterministic spending mandates, protected ZecPy signing and private fulfillment. No custom conversational CLI. Constraints run in software, not a Zcash smart contract. Two separate actual regtest payment proofs passed: a 100,000-zatoshi shielded policy payment with safe retry/unauthorized-item refusal, and a 2-of-2 RedPallas FROST-signed shielded payment with confirmed 100,000-zatoshi receipt. DKG passed; one participant did not complete signing, and both did. FROST is a single-host protocol proof, not an independently deployed Pactora policy signer. Current checks: 115 Pactora tests, 37 native unit tests, 6 native integration tests, lint/format/JS/skill checks passed. Chrome login and mandate display were inspected; full approval/decryption and actual Claude/Codex skill sessions remain unverified. Real Bitrefill fulfillment, public-testnet execution and observed Tor routing remain unverified. Bitrefill is blocked by credentials/funding plus pre-debit amount bounds and uncertain-order reconciliation. Checkout folder is Pactora; package/branding remains Pactora. Read docs/MVP.md and docs/evidence/mvp-proofs.json before historical status. Test services were stopped; ignored owner-only state is preserved. Next implement narrow product-specific fulfillment assurance, resolve sponsor prerequisites, complete client/browser and privacy verification, then obtain explicit approval for a small real purchase. Payment is not proof of usable service. Never read secrets into model context, reset uncertain reservations, retry an ambiguous debit or claim complete anonymity/refund guarantees.

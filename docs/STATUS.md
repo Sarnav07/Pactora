@@ -1,3 +1,35 @@
+# Three-proof MVP update — 4 November 2026
+
+Executed: ordinary shielded regtest payment through Pactora mandate enforcement,
+confirmed watch-only merchant receipt, safe replay, unauthorized product refusal;
+separate 2-of-2 RedPallas DKG and threshold-signed shielded regtest payment with
+confirmed receipt. Each proof receiver confirmed 100,000 test zatoshis. No public
+funds or Bitrefill balance were spent. The FROST proof is not a deployed policy signer.
+
+Implemented: controlled merchant service/adapter, persistent test-payment retry
+and receipt reconciliation, protected read-only Bitrefill contract probe, pinned
+proof harnesses and proof summary. Product eligibility is now checked before
+native wallet sync/proposal construction, following a real native test finding.
+Merchant order identity is persisted before native invoice creation to prevent
+reference rebinding after a crash. Test helper keys/state are ignored and owner-only.
+
+Verification: **94 Pactora tests**, **37 native unit tests**, **6 targeted native
+integration tests** passed. Both real regtest payment proofs passed. Skills pass
+the bundled validator now that PyYAML is installed. Browser login/mandate display
+were inspected in Chrome; approval/decryption visual QA was interrupted by native
+computer-use framing/window failures. Actual hosted-agent skill use is unverified.
+
+Blocked: real Bitrefill purchase has no provisioned credentials/funds, and no verified
+atomic maximum-debit/reserved-quote plus uncertain-response reconciliation contract.
+Live checkout remains closed. Tor traffic and deployed host/signer isolation are
+unverified. Details: MVP.md, evidence/mvp-proofs.json and tools/proofs/README.md.
+
+The user moved the checkout to Factora/ during work; product/package branding
+remains Pactora. Editable installation was repaired at that location.
+Older sections below are historical and do not supersede this verification record.
+
+---
+
 # Pactora first-commit verification — 4 November 2026
 
 Renamed the Python distribution/package, preferred commands, MCP identity, skills,

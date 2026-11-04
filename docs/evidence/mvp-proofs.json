@@ -1,0 +1,67 @@
+{
+  "zcash_policy": {
+    "proof": "native_zcash_policy_payment",
+    "network": "regtest",
+    "actual_shielded_receipt_confirmed": true,
+    "confirmed_zat": 100000,
+    "identical_retry_created_no_second_transaction": true,
+    "unauthorized_purchase_blocked": true,
+    "signing": "single full-key policy service",
+    "frost_used": false,
+    "bitrefill_used": false,
+    "public_funds_moved": false,
+    "tor_verified": false,
+    "notice": "loopback regtest proof; no network anonymity claim"
+  },
+  "frost_dkg": {
+    "proof": "frost_dkg_only",
+    "participants": 2,
+    "threshold": 2,
+    "ciphersuite": "RedPallas",
+    "distributed_key_generation": true,
+    "same_group_verified": true,
+    "threshold_signature_verified": false,
+    "shielded_payment_confirmed": false,
+    "deployment": "single-host protocol demonstration; no host-compromise isolation claim"
+  },
+  "frost_payment": {
+    "proof": "frost_shielded_payment",
+    "network": "regtest",
+    "threshold": 2,
+    "participants": 2,
+    "dkg_used": true,
+    "single_participant_did_not_complete_session": true,
+    "threshold_signatures_applied_and_verified": true,
+    "actual_shielded_receipt_confirmed": true,
+    "confirmed_zat": 100000,
+    "policy_enforced_by_frost": false,
+    "bitrefill_used": false,
+    "public_funds_moved": false,
+    "tor_verified": false,
+    "notice": "separate single-host threshold protocol proof, not deployed signer isolation"
+  },
+  "bitrefill": {
+    "verified_purchase": false,
+    "credentials_provisioned": false,
+    "funding_provisioned": false,
+    "safe_maximum_debit_contract_verified": false,
+    "live_checkout_enabled": false
+  },
+  "versions": {
+    "zecpy_baseline": "f0b79c9289ff59f0b93007d4e2040ce88bf9bbfa",
+    "frost_library": "0966bd1529aa062ad3b621af99e277f976b1c0f0",
+    "frost_demo": "53df99c2bd61f7cb60a0d1f634822a76be3799cf",
+    "zcash_devtool": "0b3436bb8d235c67cd36b800cb45a7b1b489c415",
+    "validator": "Zebra 7.0.0",
+    "validator_archive_sha256": "3cbf0151efa1e60e3831ebcf9ec33c37f5a5b1d85a164a143600da1cb3a089df"
+  },
+  "verification": {
+    "pactora_tests_passed": 94,
+    "native_unit_tests_passed": 37,
+    "native_integration_tests_passed": 6,
+    "tor_traffic_verified": false,
+    "browser_login_and_mandate_display_inspected": true,
+    "browser_approval_completed": false,
+    "interactive_hosted_agent_skill_tested": false
+  }
+}

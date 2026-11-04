@@ -479,3 +479,23 @@ async def test_ineligible_product_rejected_before_native_proposal(setup, monkeyp
             ref, "attack", binding(product="attacker"), "package", 210, int(time.time()) + 100
         )
     assert wallet.signs == 0
+    # Early policy refusal must still consume this reference's immutable binding.
+    with pytest.raises(Refused, match="purchase_reference_changed"):
+        await service.purchase_under_mandate(ref, "attack", binding(), "package", 210, int(time.time()) + 100)
+    assert wallet.signs == 0
+
+
+async def test_pause_blocks_signing_and_survives_restart(setup):
+    service, wallet, key, path, enc, pub = setup
+    approval = await service.prepare(binding())
+    await service.set_paused(True)
+    with pytest.raises(Refused, match="signing_paused"):
+        await service.execute(approval["reference"], sign(key, approval))
+    assert wallet.signs == 0
+    # Reopen using the same encrypted journal, preserving the control row.
+    service.db.close()
+    service.db = __import__("sqlite3").connect(path / "journal.sqlite")
+    assert service.control() == {"paused": True}
+    await service.set_paused(False)
+    assert (await service.execute(approval["reference"], sign(key, approval)))["state"] == "broadcast"
+    assert wallet.signs == 1

@@ -232,6 +232,28 @@ class MandateBook:
                     }
         raise Refused("unknown_operation")
 
+    def refuse(self, mandate_ref, purchase_ref, selection):
+        """Bind policy refusals made before native scanning/proposal construction."""
+        reference = digest({"mandate": mandate_ref, "purchase": purchase_ref})
+        with self.lock:
+            self.db.execute("BEGIN IMMEDIATE")
+            try:
+                if not self.lookup(mandate_ref, purchase_ref, selection):
+                    self._put(
+                        "purchases",
+                        reference,
+                        {
+                            "reference": reference,
+                            "operation": secrets.token_urlsafe(24),
+                            "selection": selection,
+                            "status": "refused",
+                        },
+                    )
+                self.db.execute("COMMIT")
+            except BaseException:
+                self.db.execute("ROLLBACK")
+                raise
+
     def finish(self, reference, status):
         with self.lock:
             value = self._get("purchases", reference)

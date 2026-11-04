@@ -12,10 +12,10 @@ import re
 import secrets
 import subprocess
 import time
-import urllib.request
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from regtest_rpc import rpc, wait_for_node
 from zecpy import Wallet
 
 from pactora.crypto import b64, canonical
@@ -42,22 +42,11 @@ HEIGHTS = {
 SERVER = "http://127.0.0.1:19067"
 
 
-def rpc(method, params=None):
-    request = urllib.request.Request(
-        "http://127.0.0.1:18232",
-        json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or []}).encode(),
-        {"content-type": "application/json"},
-    )
-    result = json.load(urllib.request.urlopen(request, timeout=600))
-    if result.get("error"):
-        raise RuntimeError(str(result["error"]))
-    return result["result"]
-
-
 async def main(state, node_state, funding_state=None):
     os.umask(0o077)
     state = Path(state).resolve()
-    state.mkdir(parents=True, mode=0o700, exist_ok=False)
+    if state.exists():
+        raise RuntimeError("Choose a new proof state; existing payment state is never overwritten")
     node_state = Path(node_state).resolve()
     info = json.loads(
         subprocess.run(["docker", "inspect", "pactora-regtest"], check=True, capture_output=True).stdout
@@ -67,6 +56,8 @@ async def main(state, node_state, funding_state=None):
     config = node_state / "zebrad.toml"
     if 'network = "Regtest"' not in config.read_text():
         raise RuntimeError("regtest config required")
+    await wait_for_node()
+    state.mkdir(parents=True, mode=0o700, exist_ok=False)
     if rpc("getblockcount") < 3:
         rpc("generate", [3])
     if funding_state:
@@ -93,12 +84,7 @@ async def main(state, node_state, funding_state=None):
             )
         )
         subprocess.run(["docker", "restart", "pactora-regtest"], check=True, capture_output=True)
-        for _ in range(60):
-            try:
-                rpc("getblockcount")
-                break
-            except Exception:
-                await asyncio.sleep(1)
+        await wait_for_node()
         print("Mining private regtest funds; no public-chain funds involved", flush=True)
         rpc("generate", [105])
         await miner.sync()

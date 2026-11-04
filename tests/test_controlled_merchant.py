@@ -244,3 +244,27 @@ async def test_controlled_flow_wallet_policy_and_private_confirmation(settings, 
         merchant.db.close()
         app.state.mandates.book.close()
         app.state.engine.store.db.close()
+
+
+def test_invoice_creation_crash_keeps_product_binding(tmp_path, monkeypatch):
+    wallet = Receiver()
+    merchant = TestMerchant(wallet, tmp_path)
+    ref = secrets.token_urlsafe(24)
+    original = wallet.invoices.create
+
+    def interrupted(*args):
+        raise RuntimeError("native invoice storage interrupted")
+
+    monkeypatch.setattr(wallet.invoices, "create", interrupted)
+    with pytest.raises(RuntimeError):
+        merchant.invoice(InvoiceRequest(operation=ref, product="test-voucher", package="one test voucher"))
+    with pytest.raises(Refused, match="changed"):
+        merchant.invoice(InvoiceRequest(operation=ref, product="test-attack", package="unauthorized"))
+    monkeypatch.setattr(wallet.invoices, "create", original)
+    assert (
+        merchant.invoice(InvoiceRequest(operation=ref, product="test-voucher", package="one test voucher"))[
+            "amount_zat"
+        ]
+        == 100000
+    )
+    merchant.db.close()
