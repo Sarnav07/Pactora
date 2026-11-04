@@ -120,6 +120,7 @@ function renderMandate(m) {
   card.append(dl,node("p","Only these exact product/package combinations are permitted:"));
   m.products.forEach(p=>card.append(node("p",p.name+" · "+p.package+" · catalog "+money(p.price_cents))));
   card.append(node("p","Your hosted model sees your request, candidates and any choice it proposes. Approval allows matching purchases without another confirmation. Limits include fees.","muted"));
+  if(d.merchant==="test_merchant")card.append(node("p","CONTROLLED TEST MERCHANT: actual Zcash test funds; no redeemable goods. Dollar figures are test accounting units, not an exchange rate.","muted"));
   if(d.merchant==="simulator")card.append(node("p","SIMULATOR: no funds move; codes are not redeemable.","muted"));
   if(m.state==="awaiting_approval")card.append(action("Approve bounded mandate",async()=>{
     const keys=await deviceKeys();await api(`/api/mandates/${m.reference}/approve`,"POST",{
@@ -151,6 +152,7 @@ $("logout").onclick=async()=>{try{await api("/api/logout","POST");}finally{csrf=
   $("workspace").hidden=true;$("login").hidden=false;message("");}};
 document.addEventListener("visibilitychange",()=>{if(document.hidden)document.querySelectorAll(".secret").forEach(e=>e.remove());});
 try {const h=await api("/health");$("environment").textContent=h.environment==="simulator" ?
-  "SIMULATOR · Test products and payments only. No real funds move." : "Live discovery only · ZEC settlement is disabled.";
+  "SIMULATOR · Test products and payments only. No real funds move." : (h.environment==="test_merchant" ?
+  "CONTROLLED TEST MERCHANT · Actual test-network ZEC only. No redeemable goods or Bitrefill settlement." : "Live discovery only · ZEC settlement is disabled.");
   const s=await api("/api/session");csrf=s.csrf;$("login").hidden=true;$("workspace").hidden=false;await refresh();
 }catch{/* Sign-in is the expected initial state. */}

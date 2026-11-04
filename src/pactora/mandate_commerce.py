@@ -11,7 +11,7 @@ from pydantic import Field
 from .crypto import b64, canonical, digest, seal_to_device, unb64, validate_device_key
 from .engine import Refused
 from .mandates import Mandate, MandateBook, product_key
-from .models import Product, StrictModel
+from .models import Product, Quote, StrictModel
 from .providers import GateClosed
 from .wallet_bridge import WalletBridge
 from .wallet_cli import protected_file
@@ -110,7 +110,7 @@ class MandateCommerce:
             reference=ref,
             version=1,
             wallet_id=self.engine.settings.wallet_id,
-            network="test",
+            network=self.engine.settings.wallet_network,
             merchant=self.engine.settings.provider,
             eligible=[product_key(p["id"], p["package"]) for p in products],
             per_purchase_cents=request.per_purchase_cents,
@@ -200,6 +200,8 @@ class MandateCommerce:
                     "status": previous["status"],
                     "environment": self.engine.provider.name,
                 }
+            if self.engine.settings.provider == "test_merchant":
+                return await self._purchase_test(ref, request, selection)
             if self.engine.settings.provider != "simulator":
                 raise GateClosed("live_mandate_settlement_disabled")
             value = self.view(ref)
@@ -250,3 +252,95 @@ class MandateCommerce:
                 "status": "completed",
                 "environment": self.engine.provider.name,
             }
+
+    async def _purchase_test(self, ref, request, selection):
+        if not self.wallet:
+            raise Refused("protected_wallet_required")
+        value = self.view(ref)
+        if value["state"] != "approved":
+            raise Refused("mandate_not_approved")
+        job = self.engine.private_job(request.search_ref)
+        try:
+            product = Product.model_validate(job["details"]["products"][request.option])
+        except (KeyError, IndexError):
+            raise Refused("selection_unavailable") from None
+        operation = secrets.token_urlsafe(24)
+        quote = await self.engine.provider.quote_for(product, operation)
+        record, fresh = self.book.reserve(
+            ref,
+            request.purchase_ref,
+            selection,
+            merchant="test_merchant",
+            wallet_id=self.engine.settings.wallet_id,
+            network=self.engine.settings.wallet_network,
+            product=product.id,
+            package=product.package,
+            cents=quote.total_cents,
+            zat=quote.max_debit_zat,
+            quote_expires=quote.expires_at,
+            operation=operation,
+        )
+        if not fresh:
+            raise Refused("purchase_already_reserved")
+        try:
+            with self.store.transaction() as db:
+                spent = db.execute("SELECT value FROM meta WHERE key='spent_cents'").fetchone()[0]
+                reserved = db.execute("SELECT COALESCE(SUM(reservation),0) FROM jobs").fetchone()[0]
+                if spent + reserved + quote.total_cents > self.engine.settings.live_cap_cents:
+                    raise Refused("global_cap_exceeded")
+                db.execute("UPDATE meta SET value=value+? WHERE key='spent_cents'", (quote.total_cents,))
+            payload = {
+                "purchase_ref": request.purchase_ref,
+                "package": product.package,
+                "total_cents": quote.total_cents,
+                "quote_expires": quote.expires_at,
+                "binding": {
+                    "merchant": "test_merchant",
+                    "invoice": quote.invoice_id,
+                    "product": product.id,
+                    "destination": quote.deposit_address,
+                    "network": self.engine.settings.wallet_network,
+                    "amount_zat": quote.source_zat,
+                    "max_debit_zat": quote.max_debit_zat,
+                    "expires_at": min(quote.expires_at, value["document"]["expires_at"]),
+                },
+            }
+            # Persist exact retry envelope before contacting the signing boundary.
+            value.setdefault("pending", {})[record["reference"]] = {
+                "quote": quote.model_dump(),
+                "payload": payload,
+                "operation": operation,
+            }
+            self._save(ref, value)
+            await self.recover_test_payments(ref)
+        except Exception:
+            self.book.finish(record["reference"], "requires_private_attention")
+            raise Refused("requires_private_attention") from None
+        current = self.book.lookup(ref, request.purchase_ref, selection)
+        return {"reference": operation, "status": current["status"], "environment": self.engine.provider.name}
+
+    async def recover_test_payments(self, ref):
+        if self.engine.settings.provider != "test_merchant":
+            return
+        if not self.wallet:
+            raise Refused("protected_wallet_required")
+        value = self.view(ref)
+        for purchase, pending in list(value.get("pending", {}).items()):
+            # This reuses the identical wallet envelope. The wallet is the durable
+            # idempotency authority, including after a lost HTTP response or restart.
+            result = await self.wallet.call("/mandates/" + ref + "/purchase", pending["payload"])
+            wallet_ref = result.get("reference")
+            if result.get("state") == "signed":
+                await self.wallet.call("/operations/" + wallet_ref + "/recover")
+            if result.get("state") not in ("signed", "broadcast"):
+                self.book.finish(purchase, "requires_private_attention")
+                continue
+            receipt = await self.engine.provider.confirmed(Quote.model_validate(pending["quote"]))
+            if receipt is None:
+                self.book.finish(purchase, "awaiting_test_confirmation")
+                continue
+            value.setdefault("recovery", {})[purchase] = receipt
+            del value["pending"][purchase]
+            self._save(ref, value)
+            self.recover_receipts(ref)
+            value = self.view(ref)

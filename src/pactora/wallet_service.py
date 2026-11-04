@@ -197,6 +197,15 @@ class WalletService:
                     return {"reference": old["operation"], "state": "quarantined"}
             if binding.network != self.adapter._wallet.network:
                 raise Refused("network_invalid")
+            self.mandates.check_candidate(
+                mandate_ref,
+                merchant=binding.merchant,
+                wallet_id=self.wallet_id,
+                network=binding.network,
+                product=binding.product,
+                package=package,
+                quote_expires=min(quote_expires, binding.expires_at),
+            )
             try:
                 await self.adapter.sync()
             except Exception:

@@ -29,6 +29,9 @@ def main():
     serve.add_argument("--port", type=int, default=8787)
     probe = sub.add_parser("probe-route")
     probe.add_argument("--proxy", default="socks5h://127.0.0.1:9050")
+    bitrefill = sub.add_parser("probe-bitrefill")
+    bitrefill.add_argument("--config", type=Path, required=True)
+    bitrefill.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.action == "init":
         directory = args.directory.resolve()
@@ -55,6 +58,17 @@ def main():
         from .app import create_app
 
         uvicorn.run(create_app(Settings.from_env()), host=args.host, port=args.port, access_log=False)
+    elif args.action == "probe-bitrefill":
+        from .bitrefill_probe import run_probe
+        from .network import ProviderError
+
+        try:
+            print(json.dumps(asyncio.run(run_probe(args.config, args.output)), indent=2))
+        except (ProviderError, OSError, ValueError):
+            print(
+                json.dumps({"safe_balance_checkout_verified": False, "error": "protected_probe_unavailable"})
+            )
+            raise SystemExit(1)
     else:
         from .network import ProviderError
 

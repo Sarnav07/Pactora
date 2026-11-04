@@ -13,11 +13,12 @@ class ProviderError(Exception):
 class ProtectedHTTP:
     ALLOWED = frozenset({"api.bitrefill.com", "1click.chaindefuser.com"})
 
-    def __init__(self, proxy: str):
+    def __init__(self, proxy: str, *, allowed_hosts=None):
         u = urlsplit(proxy)
         if u.scheme != "socks5h" or u.hostname not in ("127.0.0.1", "localhost", "tor"):
             raise ValueError("a trusted socks5h proxy is required")
         self.proxy = proxy
+        self.allowed_hosts = self.ALLOWED if allowed_hosts is None else frozenset(allowed_hosts)
 
     def isolated_proxy(self):
         """Tor must enable IsolateSOCKSAuth; unique credentials isolate each call."""
@@ -30,7 +31,7 @@ class ProtectedHTTP:
         u = urlsplit(url)
         if (
             u.scheme != "https"
-            or u.hostname not in self.ALLOWED
+            or u.hostname not in self.allowed_hosts
             or u.username
             or u.password
             or u.port not in (None, 443)

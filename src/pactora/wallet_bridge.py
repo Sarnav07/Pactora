@@ -20,13 +20,15 @@ class WalletBridge:
         self.url = url
         self.token_file = token_file
 
-    async def call(self, path, body=None):
+    async def call(self, path, body=None, *, method="POST"):
         try:
             token = protected_file(self.token_file)
             async with httpx.AsyncClient(
                 base_url=self.url, trust_env=False, follow_redirects=False, timeout=30
             ) as client:
-                response = await client.post(path, json=body, headers={"Authorization": "Bearer " + token})
+                response = await client.request(
+                    method, path, json=body, headers={"Authorization": "Bearer " + token}
+                )
             if response.status_code != 200:
                 raise Refused("wallet_bridge_unavailable")
             return response.json()

@@ -23,3 +23,11 @@ mnemonic*
 gateway.json
 wallet-config.json
 build/
+
+# Native/demo tooling, generated evidence and private state
+.tools/
+proof-state/
+proof-evidence/
+
+# Rust proof helper build output
+**/target/

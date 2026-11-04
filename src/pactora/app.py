@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import Field
 
 from .config import Settings
+from .controlled_provider import ControlledMerchant
 from .crypto import PrivateStoreCipher, verify_password
 from .engine import Engine, Refused
 from .mandate_commerce import MandateApproval, MandateCommerce, MandateRequest, PurchaseRequest
@@ -35,7 +36,12 @@ def create_app(settings: Settings, provider=None, *, run_worker=True):
     store = Store(settings.data_dir, PrivateStoreCipher(settings.master_key))
     engine = Engine(
         store,
-        provider or (Simulator() if settings.provider == "simulator" else Bitrefill(settings)),
+        provider
+        or (
+            ControlledMerchant(settings)
+            if settings.provider == "test_merchant"
+            else (Simulator() if settings.provider == "simulator" else Bitrefill(settings))
+        ),
         settings,
     )
 
@@ -206,6 +212,7 @@ def create_app(settings: Settings, provider=None, *, run_worker=True):
     @app.post("/api/mandates/{reference}/recover", dependencies=[Depends(session)])
     async def recover_mandate(reference: str):
         async with mandates.lock:
+            await mandates.recover_test_payments(reference)
             return mandates.recover_receipts(reference)
 
     @app.post("/api/mandates/{reference}/revoke", dependencies=[Depends(session)])

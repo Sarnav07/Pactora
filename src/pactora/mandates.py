@@ -133,6 +133,19 @@ class MandateBook:
                 raise Refused("purchase_reference_changed")
             return value
 
+    def check_candidate(self, mandate_ref, *, merchant, wallet_id, network, product, package, quote_expires):
+        """Reject ineligible requests before wallet scanning or proposal construction."""
+        with self.lock:
+            value = self._get("mandates", mandate_ref)
+            m = Mandate.model_validate(value["document"])
+            now = int(time.time())
+            if value["revoked"] or m.expires_at <= now or quote_expires <= now:
+                raise Refused("mandate_or_quote_inactive")
+            if (m.wallet_id, m.network, m.merchant) != (wallet_id, network, merchant):
+                raise Refused("mandate_binding_mismatch")
+            if product_key(product, package) not in m.eligible:
+                raise Refused("product_not_permitted")
+
     def reserve(
         self,
         mandate_ref,

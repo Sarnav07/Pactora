@@ -29,6 +29,10 @@ class Settings:
     checkout_mode: str = "guest"
     wallet_service_url: str = ""
     wallet_api_token_file: str = field(default="", repr=False)
+    wallet_network: str = "test"
+    test_merchant_url: str = ""
+    test_merchant_token_file: str = field(default="", repr=False)
+    test_fee_ceiling_zat: int = 50000
     wallet_id: str = "test-wallet"
     mandate_signing_key_file: str = field(default="", repr=False)
     email: str = field(default="", repr=False)
@@ -43,8 +47,10 @@ class Settings:
             raise ValueError("gateway key must be at least 32 characters")
         if not 1 <= self.live_cap_cents <= 500:
             raise ValueError("demo cap must be between 1 and 500 cents")
-        if self.provider not in ("simulator", "bitrefill"):
+        if self.provider not in ("simulator", "bitrefill", "test_merchant"):
             raise ValueError("unknown provider")
+        if self.wallet_network not in ("test", "regtest") or self.test_fee_ceiling_zat <= 0:
+            raise ValueError("invalid test wallet configuration")
         if self.checkout_mode not in ("guest", "account"):
             raise ValueError("unknown checkout mode")
 
@@ -68,6 +74,10 @@ class Settings:
             checkout_mode=env("PACTORA_CHECKOUT_MODE", "guest"),
             wallet_service_url=env("PACTORA_WALLET_URL", ""),
             wallet_api_token_file=env("PACTORA_WALLET_TOKEN_FILE", ""),
+            wallet_network=env("PACTORA_WALLET_NETWORK", "test"),
+            test_merchant_url=env("PACTORA_TEST_MERCHANT_URL", ""),
+            test_merchant_token_file=env("PACTORA_TEST_MERCHANT_TOKEN_FILE", ""),
+            test_fee_ceiling_zat=int(env("PACTORA_TEST_FEE_CEILING_ZAT", "50000")),
             wallet_id=env("PACTORA_WALLET_ID", "test-wallet"),
             mandate_signing_key_file=env("PACTORA_MANDATE_KEY_FILE", ""),
             email=env("PACTORA_CHECKOUT_EMAIL", ""),

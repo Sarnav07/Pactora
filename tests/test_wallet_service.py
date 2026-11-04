@@ -446,3 +446,36 @@ async def test_wallet_mandate_http_registration_and_revoke(setup):
         response = await client.post(f"/mandates/{ref}/purchase", json={**payload, "purchase_ref": "two"})
         assert response.status_code == 403
         assert wallet.signs == 1
+
+
+async def test_ineligible_product_rejected_before_native_proposal(setup, monkeypatch):
+    from pactora.mandates import product_key
+
+    service, wallet, key, *_ = setup
+    ref = secrets.token_urlsafe(24)
+    doc = {
+        "domain": "veilcart-mandate-v1",
+        "reference": ref,
+        "version": 1,
+        "wallet_id": "test-wallet",
+        "network": "regtest",
+        "merchant": "merchant-secret",
+        "eligible": [product_key("product-secret", "package")],
+        "per_purchase_cents": 210,
+        "total_cents": 420,
+        "per_purchase_zat": 110,
+        "total_zat": 220,
+        "max_purchases": 2,
+        "expires_at": int(time.time()) + 500,
+    }
+    service.mandates.install(doc, sign(key, doc))
+
+    def unavailable(*args, **kwargs):
+        raise AssertionError("native proposal must never be reached for ineligible product")
+
+    monkeypatch.setattr(wallet, "propose", unavailable)
+    with pytest.raises(Refused, match="product_not_permitted"):
+        await service.purchase_under_mandate(
+            ref, "attack", binding(product="attacker"), "package", 210, int(time.time()) + 100
+        )
+    assert wallet.signs == 0
