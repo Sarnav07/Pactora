@@ -16,8 +16,8 @@ the protected testnet wallet host, install the patched reference package there
 wallet outside the model. Building the native dependency can take several minutes.
 Do not give its mnemonic to MCP or commit it.
 
-This implementation has not rerun ZecPy's chain-dependent suite or moved any
-funds. ZecPy's recorded Tor/testnet run is reference-authored evidence, not a new
+Six targeted ZecPy chain-dependent tests passed against a private regtest node,
+and a shielded test payment was confirmed. No public funds were moved. ZecPy's recorded Tor/testnet run is reference-authored evidence, not a new
 Pactora verification. Whole-system anonymity is not established by a request-count
 metric. Keep opt-in memo fetching disabled in the normal path.
 
@@ -25,5 +25,4 @@ metric. Keep opt-in memo fetching disabled in the normal path.
 
 The patch also adds `sign_proposal` and `rebroadcast_transaction` native/Python
 methods, plus recovery and Pactora mandate regtest tests. See patches/README.md
-for the pinned baseline and application steps. Native compilation passed before
-this branding change; runtime transfers and observed Tor routing remain unverified.
+for the pinned baseline and application steps. Native compilation and private regtest transfers passed; observed Tor routing and public-network transfers remain unverified.

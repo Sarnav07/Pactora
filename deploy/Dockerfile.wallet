@@ -1,0 +1,24 @@
+# Build the patched native dependency separately from the simulator executor.
+FROM rust:1.96-bookworm AS native-builder
+RUN apt-get update && apt-get install -y --no-install-recommends git python3 python3-venv python3-dev pkg-config clang cmake && rm -rf /var/lib/apt/lists/*
+RUN python3 -m venv /build-venv && /build-venv/bin/pip install 'maturin>=1.15,<2'
+RUN git clone https://github.com/mikemoulder/zecpy.git /src/zecpy && \
+    git -C /src/zecpy checkout --detach f0b79c9289ff59f0b93007d4e2040ce88bf9bbfa
+COPY patches/zecpy.patch /src/zecpy.patch
+RUN git -C /src/zecpy apply --check /src/zecpy.patch && git -C /src/zecpy apply /src/zecpy.patch
+RUN cd /src/zecpy && /build-venv/bin/maturin build --release --locked --interpreter python3 --out /wheels
+
+FROM ghcr.io/astral-sh/uv:0.11.15 AS uv
+FROM python:3.12-slim-bookworm
+COPY --from=uv /uv /uvx /bin/
+WORKDIR /app
+COPY pyproject.toml uv.lock README.md ./
+COPY src ./src
+COPY --from=native-builder /wheels /wheels
+RUN uv sync --locked --no-dev --no-editable && \
+    uv pip install --python /app/.venv/bin/python /wheels/*.whl && \
+    rm -rf /wheels && \
+    useradd --uid 10001 --create-home wallet
+USER 10001:10001
+ENV PATH="/app/.venv/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENTRYPOINT ["pactora-wallet"]

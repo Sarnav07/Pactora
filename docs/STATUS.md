@@ -1,3 +1,11 @@
+# Current verification — 4 November 2026
+
+The application suite passed **115 tests**. Browser/MCP simulator verification and a separate native browser/MCP flow passed, including a confirmed 100,000-zatoshi shielded regtest receipt, safe retry and unauthorized-product refusal. The separate 2-of-2 FROST regtest payment is verified. See [MVP evidence](MVP.md), [end-to-end results](evidence/e2e-verification-2026-11-04.json) and the [project checklist](PROJECT_CONTEXT_AND_CHECKLIST.md). The native wallet image was built and its patched wallet methods imported; the pinned proof tools also built in an isolated directory. Real Bitrefill fulfillment, Tor routing, deployed signer isolation and interactive hosted-agent sessions remain unverified.
+
+The sections below are historical snapshots and may have been superseded.
+
+---
+
 # Three-proof MVP update — 4 November 2026
 
 Executed: ordinary shielded regtest payment through Pactora mandate enforcement,
@@ -24,8 +32,6 @@ atomic maximum-debit/reserved-quote plus uncertain-response reconciliation contr
 Live checkout remains closed. Tor traffic and deployed host/signer isolation are
 unverified. Details: MVP.md, evidence/mvp-proofs.json and tools/proofs/README.md.
 
-The user moved the checkout to Factora/ during work; product/package branding
-remains Pactora. Editable installation was repaired at that location.
 Older sections below are historical and do not supersede this verification record.
 
 ---

@@ -1,0 +1,39 @@
+{
+  "simulator": {
+    "environment": "simulator",
+    "real_funds_moved": false,
+    "real_goods_delivered": false,
+    "mcp_stdio": true,
+    "private_browser_approval": true,
+    "safe_retry": true,
+    "unauthorized_option_refused": true,
+    "browser_decryption": true,
+    "indexeddb_key_survives_reload": true,
+    "device_acknowledgement": true,
+    "private_issue_reporting": true,
+    "revocation": true,
+    "logout_clears_receipts": true,
+    "mobile_no_horizontal_overflow": true,
+    "browser_page_errors": 0,
+    "hosted_codex_or_claude_session": false
+  },
+  "native_browser": {
+    "proof": "native_mcp_private_browser_payment",
+    "network": "regtest",
+    "actual_shielded_receipt_confirmed": true,
+    "confirmed_zat": 100000,
+    "mcp_stdio": true,
+    "private_browser_approval_and_decryption": true,
+    "wallet_and_merchant_http": true,
+    "identical_retry_no_second_payment": true,
+    "unauthorized_product_blocked": true,
+    "revocation": true,
+    "real_goods_delivered": false,
+    "public_funds_moved": false,
+    "tor_verified": false,
+    "deployment": "same-host integration proof; no OS-isolation claim"
+  },
+  "application_tests_passed": 115,
+  "interactive_codex_tested": false,
+  "interactive_claude_tested": false
+}

@@ -31,3 +31,7 @@ proof-evidence/
 
 # Rust proof helper build output
 **/target/
+
+# Local reference and superseded branch notes
+docs/OMAMORI_REVIEW.md
+docs/DEMO_PROGRESS.md

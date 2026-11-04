@@ -133,7 +133,7 @@ restart quarantine, and protected HTTP failure. It makes no external purchases.
 The adjacent ZecPy reference has a minimal invoice URI bug fix and regression
 tests. [ZecPy patch record](docs/ZECPY.md). Omamori is a design reference, not a
 vendored implementation; no Base smart-account or World ID/Jev integration is
-present. [Audit findings](docs/OMAMORI_REVIEW.md).
+present.
 
 ## Recovery and limits
 

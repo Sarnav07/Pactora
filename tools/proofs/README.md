@@ -18,6 +18,45 @@ The compact, deliberately non-secret execution summary is
 - ZecPy provides the Python native runtime. grpcio/grpcio-tools are needed for its
   audit proxy tests. PyYAML is needed for the bundled skill validator.
 
+### Clean bootstrap
+
+On 4 November 2026, the helper completed in a new temporary directory on macOS
+arm64 using the host's existing Rust/uv installations and dependency caches.
+All pinned sources and the patch were checked, the FROST tools, developer tool and address helper were
+built, patched ZecPy imported, and 115 Pactora tests passed in the new Python
+environment. This was not a fresh operating-system installation or a replay of
+the private-chain payment proofs. Network access is required for uncached inputs.
+
+From the project root, install Git, Rust 1.96 or newer, `uv`, a C toolchain and
+system development dependencies needed by Rust. Then prepare a **new** directory:
+
+```sh
+python3 tools/proofs/bootstrap_tools.py --tools-dir .tools/clean-bootstrap
+```
+
+The helper checks out all three pinned sources, applies the ZecPy patch, builds the
+FROST and devtool executables plus the address helper with `--locked`, and installs
+Pactora and patched ZecPy in a dedicated virtual environment. It never starts a
+node or touches wallet state. The binaries are in
+`.tools/clean-bootstrap/target/release/`; Python is
+`.tools/clean-bootstrap/venv/bin/python`. The directory must not already exist;
+use a new name after a failure. Pass `--source-only` to validate checkouts and
+patching without building. Validator download/start is a separate step below.
+
+For the commands below, use the prepared Python and override paths, for example:
+
+```sh
+.tools/clean-bootstrap/venv/bin/python tools/proofs/frost_dkg.py \
+  --tools .tools/clean-bootstrap/target/release --state proof-state/frost-dkg-new
+```
+
+For `frost_payment.py`, also point `--view-helper` at
+`.tools/clean-bootstrap/target/release/pactora-proof-view-network`. For native
+fixture setup, point `--devtool` at that directory's `zcash-devtool`. Use a new,
+dedicated regtest state and do not reuse failed or uncertain payments.
+
+### Existing environment setup
+
 Use a dedicated Python environment. `uv pip install --python .venv/bin/python -e
 /path/to/patched-zecpy grpcio grpcio-tools PyYAML` provisions the optional runtime
 and tests. A subsequent `uv sync` can remove these optional tools; reinstall them

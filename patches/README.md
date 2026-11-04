@@ -6,8 +6,10 @@ Baseline: `f0b79c9289ff59f0b93007d4e2040ce88bf9bbfa`.
 `zecpy.patch` includes the invoice decimal-format correction, local signing and
 stored-transaction rebroadcast extensions, and native recovery/mandate tests.
 The optional Pactora import in the native mandate test requires this application
-installed in the test environment. These tests require the local native chain;
-they have not been executed in this workspace.
+installed in the test environment. The chain-dependent tests require a private regtest node. Six targeted native
+recovery, proposal and mandate integration tests passed in this workspace, along
+with 37 native unit tests. These results do not establish public-testnet behavior
+or Tor routing; see [the proof evidence](../docs/evidence/mvp-proofs.json).
 
 Apply to a clean upstream checkout at the baseline:
 
