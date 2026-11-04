@@ -8,11 +8,11 @@ The project branding and Python package are **Pactora / `pactora`**. The current
 
 ## Current integration and final demo checklist (4 November 2026)
 
-The work from `feat/mvp-demo-fulfillment-recovery` has been integrated into the local working tree alongside the existing dashboard and proof work. It adds **demo-only** expected-result validation, separate payment/fulfillment/private-delivery states, encrypted receipt acknowledgement and private issue reporting, bounded reconciliation, revocation recovery and refusal binding. The dashboard shows delivery details under Live. Background confirmation polling observes already-broadcast transactions; it does not initiate wallet purchases. This is not a live Bitrefill adapter or proof of redeemable goods. The remote branch is not safe to delete until the integrated changes have been committed and pushed to `main`.
+The work from `feat/mvp-demo-fulfillment-recovery` has been integrated into the local working tree alongside the existing dashboard and proof work. It adds **demo-only** expected-result validation, separate payment/fulfillment/private-delivery states, encrypted receipt acknowledgement and private issue reporting, bounded reconciliation, revocation recovery and refusal binding. The dashboard shows delivery details under Live. Background confirmation polling observes already-broadcast transactions; it does not initiate wallet purchases. This is not a live Bitrefill adapter or proof of redeemable goods. The integration was published to `main` as commit `315b668`; the source branch can now be deleted. Its original commit is not in main's ancestry because the work was integrated as one commit.
 
 Priority for the final demonstration:
 
-- [ ] Publish the reviewed integration to `main`; verify the remote commit includes the changes before deleting the source branch. GitHub authentication is required.
+- [x] Publish the reviewed integration to `main` as commit `315b668`; the source branch can be deleted after verifying the published commit.
 - [x] Run the application suite on the integrated working tree: 115 tests passed. Ruff, JavaScript syntax and Git diff checks passed.
 - [ ] Run browser/MCP simulator verification on the integrated code; confirm approval, allowed purchase, refusal, receipt reveal, reload, issue reporting, revocation, mobile layout and no browser errors. Browser automation needs Playwright and an installed Chromium browser.
 - [ ] Rehearse the actual Claude Code and Codex skill flows, each with a private browser inaccessible to the shopping agent. Record generic model-visible responses only.
