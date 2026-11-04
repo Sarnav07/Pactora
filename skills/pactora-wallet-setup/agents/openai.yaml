@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pactora Wallet Setup"
+  short_description: "Guide protected testnet wallet service provisioning"
+  default_prompt: "Use $pactora-wallet-setup to review operator provisioning without accessing secrets."

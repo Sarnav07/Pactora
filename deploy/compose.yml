@@ -1,0 +1,38 @@
+# Protected host only. No agent shell/Docker/browser access to this host.
+# Provision ./config.json with PACTORA_DATA=/state and
+# PACTORA_TOR_PROXY=socks5h://tor:9050. Keep the live gate closed.
+services:
+  executor:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    ports: ["127.0.0.1:8787:8787"]
+    volumes: ["state:/state"]
+    tmpfs: ["/tmp:mode=1777,size=16m"]
+    secrets:
+      - source: executor_config
+        target: config.json
+        uid: "10001"
+        gid: "10001"
+        mode: 0400
+    networks: [private]
+    depends_on: [tor]
+  tor:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.tor
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks: [private, outbound]
+networks:
+  private:
+    internal: true
+  outbound: {}
+volumes:
+  state: {}
+secrets:
+  executor_config:
+    file: ./config.json

@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.env
+.env.*
+!.env.example
+data/
+*.db*
+dist/
+artifacts/
+deploy/config.json
+
+
+# Local-only planning records and sensitive runtime material
+PROJECT_HANDOFF.md
+.DS_Store
+*.sqlite*
+*.pem
+*.key
+mnemonic*
+gateway.json
+wallet-config.json
+build/

@@ -1,0 +1,3 @@
+# Preserve patch context and upstream license text verbatim.
+patches/*.patch -whitespace
+patches/zecpy-LICENSE-* -whitespace

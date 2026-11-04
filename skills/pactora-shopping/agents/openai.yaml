@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pactora Shopping"
+  short_description: "Shop through restricted tools and private mandates"
+  default_prompt: "Use $pactora-shopping to compare options and request a private spending mandate."

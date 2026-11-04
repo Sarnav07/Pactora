@@ -1,0 +1,35 @@
+# Example Linux systemd unit. Provision user, virtualenv, secrets and state first.
+# Embedded Arti requires outbound networking. This is not a direct-egress firewall.
+[Unit]
+Description=Pactora protected testnet ZecPy wallet
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pactora-wallet
+Group=pactora-wallet
+UMask=0077
+ExecStart=/opt/pactora-wallet/.venv/bin/python -m pactora.wallet_cli --config /etc/pactora-wallet/config.json
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/pactora-wallet
+ReadOnlyPaths=/etc/pactora-wallet
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LimitCORE=0
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,217 @@
+diff --git a/python/zecpy/invoices.py b/python/zecpy/invoices.py
+index 933813a..37317b7 100644
+--- a/python/zecpy/invoices.py
++++ b/python/zecpy/invoices.py
+@@ -65,7 +65,11 @@ class Invoice:
+     @property
+     def uri(self) -> str:
+         """A ZIP-321 payment URI, for QR codes and wallet deep links."""
+-        amount = format(Decimal(self.amount_zat) / Decimal(100_000_000), "f").rstrip("0").rstrip(".")
++        amount = format(Decimal(self.amount_zat) / Decimal(100_000_000), "f")
++        # Strip fractional padding only: whole-number zeros are significant
++        # (10 ZEC must never become a request for 1 ZEC).
++        if "." in amount:
++            amount = amount.rstrip("0").rstrip(".")
+         message = urllib.parse.quote(self.reference, safe="")
+         return f"zcash:{self.address}?amount={amount}&message={message}"
+ 
+diff --git a/python/zecpy/wallet.py b/python/zecpy/wallet.py
+index 8b3620a..dc426c3 100644
+--- a/python/zecpy/wallet.py
++++ b/python/zecpy/wallet.py
+@@ -338,6 +338,17 @@ class Wallet:
+             to, memo, mode == "everything", allow_transparent, allow_pool_crossing
+         )
+ 
++    async def sign_proposal(self, proposal: Proposal) -> str:
++        """Sign and store locally without broadcast. Persist the txid before broadcasting.
++
++        A crash before the caller records the txid requires reconciliation, never re-signing.
++        """
++        return await self._native.sign_proposal(proposal)
++
++    async def rebroadcast_transaction(self, txid: str) -> str:
++        """Broadcast an existing wallet transaction without constructing another payment."""
++        return await self._native.rebroadcast_transaction(txid)
++
+     async def send_proposal(self, proposal: Proposal, *, max_broadcast_delay: float = 0.0) -> str:
+         """Builds, signs and broadcasts exactly the transaction ``proposal`` describes, so
+         the fee paid is the fee shown. Raises ``WalletError``, building nothing, if a note
+diff --git a/src/send.rs b/src/send.rs
+index 8a0efd7..d472e2e 100644
+--- a/src/send.rs
++++ b/src/send.rs
+@@ -522,7 +522,7 @@ fn check_fresh(db_path: &str, proposal: &WalletProposal) -> PyResult<()> {
+     Ok(())
+ }
+ 
+-fn raw_transaction(db: &Db, txid: TxId) -> PyResult<(String, RawTransaction)> {
++pub fn raw_transaction(db: &Db, txid: TxId) -> PyResult<(String, RawTransaction)> {
+     let tx = db
+         .get_transaction(txid)
+         .map_err(error::wallet("cannot load the new transaction"))?
+diff --git a/src/wallet.rs b/src/wallet.rs
+index 0ae3237..2992a72 100644
+--- a/src/wallet.rs
++++ b/src/wallet.rs
+@@ -445,6 +445,43 @@ impl NativeWallet {
+         self.send_request(py, Plan::Planned(proposal), max_broadcast_delay)
+     }
+ 
++    /// Signs and stores an exact proposal locally, without broadcasting. Recovery callers
++    /// must durably record the returned txid before calling rebroadcast_transaction.
++    fn sign_proposal<'py>(
++        &self, py: Python<'py>, proposal: Py<send::PyProposal>,
++    ) -> PyResult<Bound<'py, PyAny>> {
++        let inner = Arc::clone(&self.inner);
++        if inner.usk.is_none() {
++            return Err(WalletError::new_err("watch-only wallet cannot sign"));
++        }
++        pyo3_async_runtimes::tokio::future_into_py(py, async move {
++            let mut db = inner.db.lock().await;
++            let (txid, _) = tokio::task::block_in_place(|| {
++                send::build_planned(&mut db, &inner.network,
++                    inner.usk.as_ref().expect("checked above"), &inner.path, proposal.get())
++            })?;
++            Ok(txid)
++        })
++    }
++
++    /// Broadcasts only an existing stored transaction. Never builds or signs another one.
++    fn rebroadcast_transaction<'py>(
++        &self, py: Python<'py>, txid: String,
++    ) -> PyResult<Bound<'py, PyAny>> {
++        let inner = Arc::clone(&self.inner);
++        pyo3_async_runtimes::tokio::future_into_py(py, async move {
++            let parsed = zcash_primitives::transaction::TxId::from_hex(&txid).ok_or_else(|| {
++                pyo3::exceptions::PyValueError::new_err("invalid transaction id")
++            })?;
++            let db = inner.db.lock().await;
++            let (stored_id, raw) = tokio::task::block_in_place(|| send::raw_transaction(&db, parsed))?;
++            drop(db);
++            let mut client = inner.server.connect(Purpose::Broadcast).await?;
++            send::broadcast(&mut client, raw).await?;
++            Ok(stored_id)
++        })
++    }
++
+     /// The shielded address at a specific diversifier index. Invoices use indices from their
+     /// own range, so each invoice has an address no one else is given.
+     fn address_at(&self, py: Python<'_>, index: u128) -> PyResult<String> {
+diff --git a/tests/test_invoices_unit.py b/tests/test_invoices_unit.py
+index 1ee0d96..1dd5277 100644
+--- a/tests/test_invoices_unit.py
++++ b/tests/test_invoices_unit.py
+@@ -33,3 +33,13 @@ def test_uri_follows_zip321():
+ def test_uri_whole_and_tiny_amounts():
+     assert Invoice(1, "a", 100_000_000, "u1x", 0).uri.startswith("zcash:u1x?amount=1&")
+     assert Invoice(1, "a", 1, "u1x", 0).uri.startswith("zcash:u1x?amount=0.00000001&")
++
++
++@pytest.mark.parametrize("amount_zat", [1, 150_000, 100_000_000, 1_000_000_000, 2_000_000_000, 10_000_000_000])
++def test_uri_amount_round_trip_preserves_whole_number_zeros(amount_zat):
++    from decimal import Decimal
++    from urllib.parse import parse_qs, urlsplit
++
++    uri = Invoice(1, "order", amount_zat, "u1x", 0).uri
++    amount = parse_qs(urlsplit(uri).query)["amount"][0]
++    assert Decimal(amount) * Decimal(100_000_000) == amount_zat
+diff --git a/tests/test_devnet_recovery.py b/tests/test_devnet_recovery.py
+new file mode 100644
+index 0000000..9b099d0
+--- /dev/null
++++ b/tests/test_devnet_recovery.py
+@@ -0,0 +1,35 @@
++"""Native split signing/rebroadcast contract; requires the local regtest chain."""
++
++import pytest
++
++from tools.leak_audit import AuditProxy
++from zecpy import Wallet, WalletError
++
++pytestmark = pytest.mark.devnet
++
++
++async def test_sign_locally_then_reopen_and_rebroadcast(tmp_path, devnet):
++    audit = AuditProxy("127.0.0.1:0", "127.0.0.1:19067", log_path=tmp_path / "audit.jsonl")
++    await audit.start()
++    try:
++        sender, _ = await Wallet.create(tmp_path / "sender", network="regtest",
++                                       server=audit.url, regtest_heights=devnet.heights)
++        receiver, _ = await Wallet.create(tmp_path / "receiver", network="regtest",
++                                         server=devnet.server, regtest_heights=devnet.heights)
++        devnet.pay(sender.address(), 2_000_000)
++        devnet.mine(10)
++        await sender.sync()
++        proposal = sender.propose(receiver.address(), 300_000)
++        before = len(audit.records)
++        txid = await sender.sign_proposal(proposal)
++        assert len(audit.records) == before, "signing must not contact the server"
++        assert receiver.balance().total == 0
++        reopened = Wallet.open(sender.path, server=audit.url)  # watch-only recovery needs no key
++        assert await reopened.rebroadcast_transaction(txid) == txid
++        devnet.mine(1)
++        await receiver.sync()
++        assert receiver.balance().total == 300_000
++        with pytest.raises((ValueError, WalletError)):
++            await reopened.rebroadcast_transaction("invalid")
++    finally:
++        await audit.stop()
+diff --git a/tests/test_devnet_mandates.py b/tests/test_devnet_mandates.py
+new file mode 100644
+index 0000000..f747290
+--- /dev/null
++++ b/tests/test_devnet_mandates.py
+@@ -0,0 +1,52 @@
++"""Native Pactora mandate test. Requires installed Pactora, ZecPy and local devnet."""
++import secrets
++import time
++
++import pytest
++from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
++
++from zecpy import Wallet
++
++pytestmark = pytest.mark.devnet
++
++
++async def test_native_mandate_two_shielded_receipts(tmp_path, devnet):
++    pytest.importorskip("pactora.wallet_service")
++    from pactora.crypto import b64, canonical
++    from pactora.engine import Refused
++    from pactora.mandates import product_key
++    from pactora.wallet_service import PaymentBinding, WalletService
++
++    sender, _ = await Wallet.create(tmp_path / "sender", network="regtest",
++        server=devnet.server, regtest_heights=devnet.heights)
++    receiver, _ = await Wallet.create(tmp_path / "receiver", network="regtest",
++        server=devnet.server, regtest_heights=devnet.heights)
++    devnet.pay(sender.address(), 2_000_000)
++    devnet.mine(10)
++    await sender.sync()
++    key = Ed25519PrivateKey.generate()
++    service = WalletService(sender, tmp_path / "service", b64(secrets.token_bytes(32)),
++        b64(key.public_key().public_bytes_raw()), 1_000_000)
++    ref = secrets.token_urlsafe(24)
++    doc = {"domain": "pactora-mandate-v1", "reference": ref, "version": 1,
++        "wallet_id": "test-wallet", "network": "regtest", "merchant": "regtest-shop",
++        "eligible": [product_key("test-product", "one")], "per_purchase_cents": 100,
++        "total_cents": 200, "per_purchase_zat": 350000, "total_zat": 700000,
++        "max_purchases": 2, "expires_at": int(time.time())+600}
++    service.mandates.install(doc, b64(key.sign(canonical(doc))))
++    try:
++        for index in range(2):
++            bound = PaymentBinding(merchant="regtest-shop", invoice=f"invoice-{index}",
++                product="test-product", destination=receiver.address(), network="regtest",
++                amount_zat=300000, max_debit_zat=350000, expires_at=int(time.time())+300)
++            result = await service.purchase_under_mandate(ref, str(index), bound, "one", 100,
++                                                         bound.expires_at)
++            assert result["state"] == "broadcast"
++            devnet.mine(10)
++            await receiver.sync()
++            assert receiver.balance().total == 300000 * (index+1)
++        with pytest.raises(Refused):
++            await service.purchase_under_mandate(ref, "third", bound, "one", 100,
++                                                 bound.expires_at)
++    finally:
++        service.close()
